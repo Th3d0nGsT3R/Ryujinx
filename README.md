@@ -1,7 +1,7 @@
 
 <h1>
     <img src="https://i.imgur.com/G6Mleco.png"> Ryujinx
-    <a href="https://ci.appveyor.com/project/gdkchan/ryujinx?branch=master" target="_blank">
+    <a href="https://ci.appveyor.com/project/B3astTech/ryujinx/history" target="_blank">
         <img src="https://ci.appveyor.com/api/projects/status/ssg4jwu6ve3k594s/branch/master?svg=true">
     </a>
     <a href="https://discord.gg/N2FmfVc">
