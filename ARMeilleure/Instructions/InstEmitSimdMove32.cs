@@ -31,7 +31,7 @@ namespace ARMeilleure.Instructions
                 // To general purpose.
                 Operand value = context.VectorExtract(OperandType.I32, vec, op.Vn & 0x3);
                 SetIntA32(context, op.Rt, value);
-            } 
+            }
             else
             {
                 // From general purpose.
@@ -88,7 +88,7 @@ namespace ARMeilleure.Instructions
                 if (sameOwnerVec)
                 {
                     context.Copy(vec, context.VectorInsert(resultVec, highValue, vm1 & 3));
-                } 
+                }
                 else
                 {
                     context.Copy(vec, resultVec);
@@ -123,6 +123,36 @@ namespace ARMeilleure.Instructions
             }
         }
 
+        public static void Vmovl(ArmEmitterContext context)
+        {
+            OpCode32SimdWiden op = (OpCode32SimdWiden)context.CurrOp;
+
+            Operand res = GetVecA32(op.Qd);
+
+            int elems = op.GetBytesCount() >> op.Size;
+
+            for (int index = 0; index < elems; index++)
+            {
+                Operand me = EmitVectorExtract32(context, op.Qm, op.Im + index, op.Size, !op.U);
+
+                if (op.Size == 2)
+                {
+                    if (op.U)
+                    {
+                        me = context.ZeroExtend32(OperandType.I64, me);
+                    }
+                    else
+                    {
+                        me = context.SignExtend32(OperandType.I64, me);
+                    }
+                }
+
+                res = EmitVectorInsert(context, res, me, index, op.Size + 1);
+            }
+
+            context.Copy(GetVecA32(op.Qd), res);
+        }
+
         public static void Vtbl(ArmEmitterContext context)
         {
             OpCode32SimdTbl op = (OpCode32SimdTbl)context.CurrOp;
@@ -134,10 +164,10 @@ namespace ARMeilleure.Instructions
             int length = op.Length + 1;
 
             (int Qx, int Ix)[] tableTuples = new (int, int)[length];
+
             for (int i = 0; i < length; i++)
             {
-                (int vn, int en) = GetQuadwordAndSubindex(op.Vn + i, op.RegisterSize);
-                tableTuples[i] = (vn, en);
+                tableTuples[i] = GetQuadwordAndSubindex(op.Vn + i, op.RegisterSize);
             }
 
             int byteLength = length * 8;
@@ -172,18 +202,18 @@ namespace ARMeilleure.Instructions
                     {
                         // Result contains the current state of the vector.
                         lookupResult = context.VectorExtract(OperandType.I64, res, ix);
-                    } 
+                    }
                     else
                     {
                         lookupResult = EmitVectorExtract32(context, qx, ix, 3, false); // I64
                     }
-                    
+
                     lookupResult = context.ShiftRightUI(lookupResult, subVecIndexShift); // Get the relevant byte from this vector.
 
                     if (i == 0)
                     {
                         elemRes = lookupResult; // First result is always default.
-                    } 
+                    }
                     else
                     {
                         Operand isThisElem = context.ICompareEqual(vecIndex, Const(i));
@@ -191,7 +221,7 @@ namespace ARMeilleure.Instructions
                     }
                 }
 
-                Operand fallback = (extension) ? context.ZeroExtend32(OperandType.I64, EmitVectorExtract32(context, op.Qd, index + op.Id, 0, false)) : Const(0L); 
+                Operand fallback = (extension) ? context.ZeroExtend32(OperandType.I64, EmitVectorExtract32(context, op.Qd, index + op.Id, 0, false)) : Const(0L);
 
                 res = EmitVectorInsert(context, res, context.ConditionalSelect(inRange, elemRes, fallback), index + op.Id, 0);
             }
@@ -304,7 +334,7 @@ namespace ARMeilleure.Instructions
                     int pind = index - pairs;
                     dIns = EmitVectorExtract32(context, op.Qm, (pind << 1) + op.Im, op.Size, false);
                     mIns = EmitVectorExtract32(context, op.Qm, ((pind << 1) | 1) + op.Im, op.Size, false);
-                } 
+                }
                 else
                 {
                     dIns = EmitVectorExtract32(context, op.Qd, (index << 1) + op.Id, op.Size, false);
