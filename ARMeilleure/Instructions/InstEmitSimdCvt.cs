@@ -869,7 +869,7 @@ namespace ARMeilleure.Instructions
             }
         }
 
-        public static Operand EmitSse2CvtDoubleToInt64OpF(ArmEmitterContext context, Operand opF, bool scalar)
+        private static Operand EmitSse2CvtDoubleToInt64OpF(ArmEmitterContext context, Operand opF, bool scalar)
         {
             Debug.Assert(opF.Type == OperandType.V128);
 

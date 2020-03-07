@@ -186,7 +186,9 @@ namespace ARMeilleure.Instructions
                 {
                     Operand res = context.AddIntrinsic(Intrinsic.X86Subss, GetVec(op.Rn), GetVec(op.Rm));
 
-                    res = EmitFloatAbs(context, res, true, false);
+                    Operand mask = X86GetScalar(context, -0f);
+
+                    res = context.AddIntrinsic(Intrinsic.X86Andnps, mask, res);
 
                     context.Copy(GetVec(op.Rd), context.VectorZeroUpper96(res));
                 }
@@ -194,7 +196,9 @@ namespace ARMeilleure.Instructions
                 {
                     Operand res = context.AddIntrinsic(Intrinsic.X86Subsd, GetVec(op.Rn), GetVec(op.Rm));
 
-                    res = EmitFloatAbs(context, res, false, false);
+                    Operand mask = X86GetScalar(context, -0d);
+
+                    res = context.AddIntrinsic(Intrinsic.X86Andnpd, mask, res);
 
                     context.Copy(GetVec(op.Rd), context.VectorZeroUpper64(res));
                 }
@@ -222,7 +226,9 @@ namespace ARMeilleure.Instructions
                 {
                     Operand res = context.AddIntrinsic(Intrinsic.X86Subps, GetVec(op.Rn), GetVec(op.Rm));
 
-                    res = EmitFloatAbs(context, res, true, true);
+                    Operand mask = X86GetAllElements(context, -0f);
+
+                    res = context.AddIntrinsic(Intrinsic.X86Andnps, mask, res);
 
                     if (op.RegisterSize == RegisterSize.Simd64)
                     {
@@ -235,7 +241,9 @@ namespace ARMeilleure.Instructions
                 {
                     Operand res = context.AddIntrinsic(Intrinsic.X86Subpd, GetVec(op.Rn), GetVec(op.Rm));
 
-                    res = EmitFloatAbs(context, res, false, true);
+                    Operand mask = X86GetAllElements(context, -0d);
+
+                    res = context.AddIntrinsic(Intrinsic.X86Andnpd, mask, res);
 
                     context.Copy(GetVec(op.Rd), res);
                 }
@@ -259,13 +267,17 @@ namespace ARMeilleure.Instructions
 
                 if (op.Size == 0)
                 {
-                    Operand res = EmitFloatAbs(context, GetVec(op.Rn), true, false);
+                    Operand mask = X86GetScalar(context, -0f);
+
+                    Operand res = context.AddIntrinsic(Intrinsic.X86Andnps, mask, GetVec(op.Rn));
 
                     context.Copy(GetVec(op.Rd), context.VectorZeroUpper96(res));
                 }
                 else /* if (op.Size == 1) */
                 {
-                    Operand res = EmitFloatAbs(context, GetVec(op.Rn), false, false);
+                    Operand mask = X86GetScalar(context, -0d);
+
+                    Operand res = context.AddIntrinsic(Intrinsic.X86Andnpd, mask, GetVec(op.Rn));
 
                     context.Copy(GetVec(op.Rd), context.VectorZeroUpper64(res));
                 }
@@ -287,9 +299,11 @@ namespace ARMeilleure.Instructions
 
                 int sizeF = op.Size & 1;
 
-                if (sizeF == 0)
+                 if (sizeF == 0)
                 {
-                    Operand res = EmitFloatAbs(context, GetVec(op.Rn), true, true);
+                    Operand mask = X86GetAllElements(context, -0f);
+
+                    Operand res = context.AddIntrinsic(Intrinsic.X86Andnps, mask, GetVec(op.Rn));
 
                     if (op.RegisterSize == RegisterSize.Simd64)
                     {
@@ -300,7 +314,9 @@ namespace ARMeilleure.Instructions
                 }
                 else /* if (sizeF == 1) */
                 {
-                    Operand res = EmitFloatAbs(context, GetVec(op.Rn), false, true);
+                    Operand mask = X86GetAllElements(context, -0d);
+
+                    Operand res = context.AddIntrinsic(Intrinsic.X86Andnpd, mask, GetVec(op.Rn));
 
                     context.Copy(GetVec(op.Rd), res);
                 }
@@ -3105,7 +3121,7 @@ namespace ARMeilleure.Instructions
             context.Copy(GetVec(op.Rd), res);
         }
 
-        public static Operand EmitSse2VectorIsQNaNOpF(ArmEmitterContext context, Operand opF)
+        private static Operand EmitSse2VectorIsQNaNOpF(ArmEmitterContext context, Operand opF)
         {
             IOpCodeSimd op = (IOpCodeSimd)context.CurrOp;
 
