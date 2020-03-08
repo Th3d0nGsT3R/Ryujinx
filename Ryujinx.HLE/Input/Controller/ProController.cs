@@ -1,4 +1,6 @@
-﻿namespace Ryujinx.HLE.Input
+﻿using Ryujinx.Common.Configuration.Hid;
+
+namespace Ryujinx.HLE.Input
 {
     public class ProController : BaseController
     {

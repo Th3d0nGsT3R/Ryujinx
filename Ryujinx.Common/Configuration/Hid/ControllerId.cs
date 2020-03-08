@@ -1,4 +1,4 @@
-namespace Ryujinx.HLE.Input
+namespace Ryujinx.Common.Configuration.Hid
 {
     public enum ControllerId
     {
