@@ -1,4 +1,6 @@
-﻿namespace Ryujinx.HLE.Input
+﻿using Ryujinx.Common.Configuration.Hid;
+
+namespace Ryujinx.HLE.Input
 {
     public class NpadController : BaseController
     {
@@ -19,9 +21,9 @@
 
         public override void Connect(ControllerId controllerId)
         {
-            if (HidControllerType != ControllerStatus.NpadLeft && HidControllerType != ControllerStatus.NpadRight)
+            if (HidControllerType == ControllerStatus.NpadLeft || HidControllerType == ControllerStatus.NpadRight)
             {
-                _isHalf = false;
+                _isHalf = true;
             }
 
             ConnectionState = ControllerConnectionState.ControllerStateConnected;

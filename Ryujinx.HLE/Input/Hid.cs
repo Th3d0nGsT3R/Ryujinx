@@ -1,7 +1,8 @@
 ﻿using Ryujinx.Common;
-using Ryujinx.Configuration.Hid;
+using Ryujinx.Common.Configuration.Hid;
 using Ryujinx.HLE.HOS;
 using System;
+using System.Collections.Generic;
 
 namespace Ryujinx.HLE.Input
 {
@@ -17,7 +18,7 @@ namespace Ryujinx.HLE.Input
         private KeyboardHeader _currentKeyboardHeader;
         private KeyboardEntry  _currentKeyboardEntry;
 
-        public BaseController PrimaryController { get; private set; }
+        public List<BaseController> Controllers { get; private set; } = new List<BaseController>();
 
         internal long HidPosition;
 
@@ -62,24 +63,25 @@ namespace Ryujinx.HLE.Input
             }
         }
 
-        public void InitializePrimaryController(ControllerType controllerType)
+        public void InitializeController(ControllerId controllerId, ControllerType controllerType)
         {
-            ControllerId controllerId = controllerType == ControllerType.Handheld ?
-                ControllerId.ControllerHandheld : ControllerId.ControllerPlayer1;
+            BaseController controller;
 
             if (controllerType == ControllerType.ProController)
             {
-                PrimaryController = new ProController(_device, NpadColor.Black, NpadColor.Black);
+                controller = new ProController(_device, NpadColor.Black, NpadColor.Black);
             }
             else
             {
-                PrimaryController = new NpadController(ConvertControllerTypeToState(controllerType),
+                controller = new NpadController(ConvertControllerTypeToState(controllerType),
                      _device,
                      (NpadColor.BodyNeonRed,     NpadColor.BodyNeonRed),
                      (NpadColor.ButtonsNeonBlue, NpadColor.ButtonsNeonBlue));
             }
 
-            PrimaryController.Connect(controllerId);
+            controller.Connect(controllerId);
+
+            Controllers.Add(controller);
         }
 
         public ControllerButtons UpdateStickButtons(
