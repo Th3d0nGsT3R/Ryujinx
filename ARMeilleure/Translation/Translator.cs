@@ -20,6 +20,8 @@ namespace ARMeilleure.Translation
 
         private ConcurrentDictionary<ulong, TranslatedFunction> _funcs;
 
+        private JumpTable _jumpTable;
+
         private PriorityQueue<RejitRequest> _backgroundQueue;
 
         private AutoResetEvent _backgroundTranslatorEvent;
@@ -32,9 +34,13 @@ namespace ARMeilleure.Translation
 
             _funcs = new ConcurrentDictionary<ulong, TranslatedFunction>();
 
+            _jumpTable = JumpTable.Instance;
+
             _backgroundQueue = new PriorityQueue<RejitRequest>(2);
 
             _backgroundTranslatorEvent = new AutoResetEvent(false);
+
+            DirectCallStubs.InitializeStubs();
         }
 
         private void TranslateQueuedSubs()
@@ -46,6 +52,7 @@ namespace ARMeilleure.Translation
                     TranslatedFunction func = Translate(request.Address, request.Mode, highCq: true);
 
                     _funcs.AddOrUpdate(request.Address, func, (key, oldFunc) => func);
+                    _jumpTable.RegisterFunction(request.Address, func);
                 }
                 else
                 {
@@ -58,18 +65,28 @@ namespace ARMeilleure.Translation
         {
             if (Interlocked.Increment(ref _threadCount) == 1)
             {
-                Thread backgroundTranslatorThread = new Thread(TranslateQueuedSubs)
+                // Simple heuristic, should be user configurable in future. (1 for 4 core/ht or less, 2 for 6 core+ht etc).
+                // All threads are normal priority except from the last, which just fills as much of the last core as the os lets it with a low priority.
+                // If we only have one rejit thread, it should be normal priority as highCq code is performance critical.
+                // TODO: Use physical cores rather than logical. This only really makes sense for processors with hyperthreading. Requires OS specific code.
+                int unboundedThreadCount = Math.Max(1, (Environment.ProcessorCount - 6) / 3);
+                int threadCount = Math.Min(3, unboundedThreadCount);
+                for (int i = 0; i < threadCount; i++)
                 {
-                    Name     = "CPU.BackgroundTranslatorThread",
-                    Priority = ThreadPriority.Lowest
-                };
+                    bool last = i != 0 && i == unboundedThreadCount - 1;
+                    Thread backgroundTranslatorThread = new Thread(TranslateQueuedSubs)
+                    {
+                        Name = "CPU.BackgroundTranslatorThread." + i,
+                        Priority = last ? ThreadPriority.Lowest : ThreadPriority.Normal
+                    };
 
-                backgroundTranslatorThread.Start();
+                    backgroundTranslatorThread.Start();
+                }
             }
 
             Statistics.InitializeTimer();
 
-            NativeInterface.RegisterThread(context, _memory);
+            NativeInterface.RegisterThread(context, _memory, this);
 
             do
             {
@@ -98,7 +115,7 @@ namespace ARMeilleure.Translation
             return nextAddr;
         }
 
-        private TranslatedFunction GetOrTranslate(ulong address, ExecutionMode mode)
+        internal TranslatedFunction GetOrTranslate(ulong address, ExecutionMode mode)
         {
             // TODO: Investigate how we should handle code at unaligned addresses.
             // Currently, those low bits are used to store special flags.
@@ -124,12 +141,14 @@ namespace ARMeilleure.Translation
 
         private TranslatedFunction Translate(ulong address, ExecutionMode mode, bool highCq)
         {
-            ArmEmitterContext context = new ArmEmitterContext(_memory, Aarch32Mode.User);
+            ArmEmitterContext context = new ArmEmitterContext(_memory, _jumpTable, (long)address, highCq, Aarch32Mode.User);
 
             Logger.StartPass(PassName.Decoding);
 
-            Block[] blocks = highCq
-                ? Decoder.DecodeFunction  (_memory, address, mode)
+            bool alwaysFunctions = true;
+
+            Block[] blocks = alwaysFunctions
+                ? Decoder.DecodeFunction  (_memory, address, mode, highCq)
                 : Decoder.DecodeBasicBlock(_memory, address, mode);
 
             Logger.EndPass(PassName.Decoding);
@@ -216,7 +235,7 @@ namespace ARMeilleure.Translation
                         // with some kind of branch).
                         if (isLastOp && block.Next == null)
                         {
-                            context.Return(Const(opCode.Address + (ulong)opCode.OpCodeSizeInBytes));
+                            InstEmitFlowHelper.EmitTailContinue(context, Const(opCode.Address + (ulong)opCode.OpCodeSizeInBytes));
                         }
                     }
                 }
