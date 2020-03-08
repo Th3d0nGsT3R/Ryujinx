@@ -65,13 +65,23 @@ namespace ARMeilleure.Translation
         {
             if (Interlocked.Increment(ref _threadCount) == 1)
             {
-                Thread backgroundTranslatorThread = new Thread(TranslateQueuedSubs)
+                // Simple heuristic, should be user configurable in future. (1 for 4 core/ht or less, 2 for 6 core+ht etc).
+                // All threads are normal priority except from the last, which just fills as much of the last core as the os lets it with a low priority.
+                // If we only have one rejit thread, it should be normal priority as highCq code is performance critical.
+                // TODO: Use physical cores rather than logical. This only really makes sense for processors with hyperthreading. Requires OS specific code.
+                int unboundedThreadCount = Math.Max(1, (Environment.ProcessorCount - 6) / 3);
+                int threadCount = Math.Min(3, unboundedThreadCount);
+                for (int i = 0; i < threadCount; i++)
                 {
-                    Name     = "CPU.BackgroundTranslatorThread",
-                    Priority = ThreadPriority.Lowest
-                };
+                    bool last = i != 0 && i == unboundedThreadCount - 1;
+                    Thread backgroundTranslatorThread = new Thread(TranslateQueuedSubs)
+                    {
+                        Name = "CPU.BackgroundTranslatorThread." + i,
+                        Priority = last ? ThreadPriority.Lowest : ThreadPriority.Normal
+                    };
 
-                backgroundTranslatorThread.Start();
+                    backgroundTranslatorThread.Start();
+                }
             }
 
             Statistics.InitializeTimer();
