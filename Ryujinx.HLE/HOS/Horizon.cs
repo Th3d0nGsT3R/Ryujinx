@@ -4,6 +4,7 @@ using LibHac.Common;
 using LibHac.Fs;
 using LibHac.FsSystem;
 using LibHac.FsSystem.NcaUtils;
+using LibHac.FsSystem.RomFs;
 using LibHac.Ncm;
 using LibHac.Ns;
 using LibHac.Spl;
@@ -487,18 +488,19 @@ namespace Ryujinx.HLE.HOS
                 return;
             }
 
+            LoadExeFs(codeFs, out Npdm metaData);
+
+            TitleId = metaData.Aci0.TitleId;
+
             if (dataStorage == null)
             {
                 Logger.PrintWarning(LogClass.Loader, "No RomFS found in NCA");
             }
             else
             {
-                Device.FileSystem.SetRomFs(dataStorage.AsStream(FileAccess.Read));
+                IStorage layeredStorage = ApplyLayeredFs(dataStorage, TitleId);
+                Device.FileSystem.SetRomFs(layeredStorage.AsStream(FileAccess.Read));
             }
-
-            LoadExeFs(codeFs, out Npdm metaData);
-            
-            TitleId = metaData.Aci0.TitleId;
 
             if (controlNca != null)
             {
@@ -513,6 +515,27 @@ namespace Ryujinx.HLE.HOS
             {
                 EnsureSaveData(new TitleId(TitleId));
             }
+        }
+
+        private IStorage ApplyLayeredFs(IStorage romStorage, ulong programId)
+        {
+            string lfsPath = Path.Combine(Device.FileSystem.GetBasePath(), "lfsContents", programId.ToString("x16"), "romfs");
+
+            if (!Directory.Exists(lfsPath))
+                return romStorage;
+
+            if (!Directory.EnumerateFileSystemEntries(lfsPath).Any())
+                return romStorage;
+
+            Logger.PrintInfo(LogClass.Loader, "Creating layered FS.");
+
+            RomFsFileSystem romFs = new RomFsFileSystem(romStorage);
+            LocalFileSystem fileFs = new LocalFileSystem(lfsPath);
+
+            LayeredFileSystem layeredFs = new LayeredFileSystem(romFs, fileFs);
+
+            IStorage layeredRomStorage = new RomFsBuilder(layeredFs).Build();
+            return layeredRomStorage;
         }
 
         private void LoadExeFs(IFileSystem codeFs, out Npdm metaData)
