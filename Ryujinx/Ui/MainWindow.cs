@@ -1,5 +1,5 @@
+using ColorThiefDotNet;
 using Gtk;
-using JsonPrettyPrinterPlus;
 using Ryujinx.Audio;
 using Ryujinx.Common.Logging;
 using Ryujinx.Configuration;
@@ -9,14 +9,13 @@ using Ryujinx.Graphics.OpenGL;
 using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.FileSystem.Content;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Utf8Json;
-using Utf8Json.Resolvers;
 
 using GUI = Gtk.Builder.ObjectAttribute;
 
@@ -25,7 +24,8 @@ namespace Ryujinx.Ui
     public class MainWindow : Window
     {
         private static VirtualFileSystem _virtualFileSystem;
-        private static ContentManager    _contentManager;
+
+        private static ContentManager _contentManager;
 
         private static HLE.Switch _emulationContext;
 
@@ -40,9 +40,7 @@ namespace Ryujinx.Ui
         private static bool _ending;
         private static bool _debuggerOpened;
 
-        private static TreeView _treeView;
-
-        private static Ryujinx.Debugger.Debugger _debugger;
+        private static Debugger.Debugger _debugger;
 
 #pragma warning disable CS0649
 #pragma warning disable IDE0044
@@ -96,6 +94,7 @@ namespace Ryujinx.Ui
             GLRenderer.StatusUpdatedEvent              += Update_StatusBar;
 
             _gameTable.ButtonReleaseEvent += Row_Clicked;
+            _gameTableSelection.Changed   += Row_Focus;
 
             // First we check that a migration isn't needed. (because VirtualFileSystem will create the new directory otherwise)
             bool continueWithStartup = Migration.PromptIfMigrationNeededForStartup(this, out bool migrationNeeded);
@@ -105,7 +104,8 @@ namespace Ryujinx.Ui
             }
 
             _virtualFileSystem = VirtualFileSystem.CreateInstance();
-            _contentManager    = new ContentManager(_virtualFileSystem);
+            
+            _contentManager = new ContentManager(_virtualFileSystem);
 
             if (migrationNeeded)
             {
@@ -119,8 +119,6 @@ namespace Ryujinx.Ui
 
             // Make sure that everything is loaded.
             _virtualFileSystem.Reload();
-
-            _treeView = _gameTable;
 
             ApplyTheme();
 
@@ -424,7 +422,7 @@ namespace Ryujinx.Ui
                 _viewBox.Remove(_gLWidget);
                 _gLWidget.Exit();
 
-                if(_gLWidget.Window != this.Window && _gLWidget.Window != null)
+                if (_gLWidget.Window != this.Window && _gLWidget.Window != null)
                 {
                     _gLWidget.Window.Dispose();
                 }
@@ -435,7 +433,7 @@ namespace Ryujinx.Ui
 
                 _gameTableWindow.Expand = true;
 
-                this.Window.Title = $"Ryujinx {Program.Version}";
+                Window.Title = $"Ryujinx {Program.Version}";
 
                 _emulationContext = null;
                 _gameLoaded       = false;
@@ -589,7 +587,8 @@ namespace Ryujinx.Ui
             Application.Invoke(delegate
             {
                 _progressLabel.Text = $"{args.NumAppsLoaded}/{args.NumAppsFound} Games Loaded";
-                float barValue      = 0;
+
+                float barValue = 0;
 
                 if (args.NumAppsFound != 0)
                 {
@@ -656,6 +655,51 @@ namespace Ryujinx.Ui
             GameTableContextMenu contextMenu = new GameTableContextMenu(_tableStore, treeIter, _virtualFileSystem);
             contextMenu.ShowAll();
             contextMenu.PopupAtPointer(null);
+        }
+
+        private void Row_Focus(object sender, EventArgs args)
+        {
+            if (_gameTableSelection.GetSelected(out ITreeModel model, out TreeIter iter))
+            {
+                Gdk.Pixbuf           gameIcon     = (Gdk.Pixbuf)model.GetValue(iter, 1);
+                MemoryStream         stream       = new MemoryStream(gameIcon.SaveToBuffer("png"));
+                Bitmap               gameIconBmp  = new Bitmap(stream);
+                List<QuantizedColor> ctPalette    = new ColorThief().GetPalette(gameIconBmp, 5, 0);
+                QuantizedColor       ctBackground = ctPalette[0];
+
+                ColorThiefDotNet.Color white = new ColorThiefDotNet.Color { R = 128, G = 128, B = 128 };
+                ColorThiefDotNet.Color black = new ColorThiefDotNet.Color { R = 0,   G = 0,   B = 0 };
+
+                QuantizedColor ctText = new QuantizedColor(white, 0);
+
+                foreach (QuantizedColor color in ctPalette)
+                {
+                    if (color != ctBackground)
+                    {
+                        if ((ctBackground.IsDark && !color.IsDark) || !ctBackground.IsDark && color.IsDark)
+                        {
+                            ctText = color;
+
+                            break;
+                        }
+                        else
+                        {
+                            if (!ctBackground.IsDark)
+                            {
+                                ctText = new QuantizedColor(black, 0);
+                            }
+                        }
+                    }
+                }
+
+                CssProvider provider = new CssProvider();
+                provider.LoadFromData($"treeview:hover {{ background-color: {ctBackground.Color.ToHexString()}; color: {ctText.Color.ToHexString()};}}");
+
+                _gameTable.StyleContext.AddProvider(provider, uint.MaxValue);
+
+                stream.Close();
+                gameIconBmp.Dispose();
+            }
         }
 
         private void Load_Application_File(object sender, EventArgs args)
@@ -930,20 +974,6 @@ namespace Ryujinx.Ui
         {
             SwitchSettings settingsWin = new SwitchSettings();
             settingsWin.Show();
-        }
-
-        private void Update_Pressed(object sender, EventArgs args)
-        {
-            string ryuUpdater = System.IO.Path.Combine(_virtualFileSystem.GetBasePath(), "RyuUpdater.exe");
-
-            try
-            {
-                Process.Start(new ProcessStartInfo(ryuUpdater, "/U") { UseShellExecute = true });
-            }
-            catch(System.ComponentModel.Win32Exception)
-            {
-                GtkDialog.CreateErrorDialog("Update canceled by user or updater was not found");
-            }
         }
 
         private void About_Pressed(object sender, EventArgs args)
