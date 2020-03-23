@@ -45,23 +45,19 @@ namespace Ryujinx
             string localConfigurationPath  = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Config.json");
             string globalBasePath          = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Ryujinx");
             string globalConfigurationPath = Path.Combine(globalBasePath, "Config.json");
-
+            bool   loadDefault             = false;
+            bool   configExists            = false;
+            
             // Now load the configuration as the other subsystems are now registered
             if (File.Exists(localConfigurationPath))
             {
                 ConfigurationPath = localConfigurationPath;
-
-                ConfigurationFileFormat configurationFileFormat = ConfigurationFileFormat.Load(localConfigurationPath);
-
-                ConfigurationState.Instance.Load(configurationFileFormat, ConfigurationPath);
+                configExists      = true;
             }
             else if (File.Exists(globalConfigurationPath))
             {
                 ConfigurationPath = globalConfigurationPath;
-
-                ConfigurationFileFormat configurationFileFormat = ConfigurationFileFormat.Load(globalConfigurationPath);
-
-                ConfigurationState.Instance.Load(configurationFileFormat, ConfigurationPath);
+                configExists      = true;
             }
             else
             {
@@ -71,8 +67,27 @@ namespace Ryujinx
                 // Make sure to create the Ryujinx directory if needed.
                 Directory.CreateDirectory(globalBasePath);
 
+                loadDefault = true;
+            }
+
+            if (configExists)
+            {
+                ConfigurationFileFormat configurationFileFormat = ConfigurationFileFormat.Load(ConfigurationPath);
+
+                if (configurationFileFormat != null)
+                {
+                    ConfigurationState.Instance.Load(configurationFileFormat, ConfigurationPath);
+                }
+                else
+                {
+                    loadDefault = true;
+                }
+            }
+
+            if (loadDefault)
+            {
                 ConfigurationState.Instance.LoadDefault();
-                ConfigurationState.Instance.ToFileFormat().SaveConfig(globalConfigurationPath);
+                ConfigurationState.Instance.ToFileFormat().SaveConfig(ConfigurationPath);
             }
 
             Profile.Initialize();

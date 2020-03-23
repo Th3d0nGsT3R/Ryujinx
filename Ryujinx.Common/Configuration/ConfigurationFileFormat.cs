@@ -159,14 +159,21 @@ namespace Ryujinx.Configuration
         /// <param name="path">The path to the JSON configuration file</param>
         public static ConfigurationFileFormat Load(string path)
         {
-            var resolver = CompositeResolver.Create(
+            IJsonFormatterResolver resolver = CompositeResolver.Create(
                 new[] { new ConfigurationEnumFormatter<Key>() },
                 new[] { StandardResolver.AllowPrivateSnakeCase }
             );
 
-            using (Stream stream = File.OpenRead(path))
+            try
             {
-                return JsonSerializer.Deserialize<ConfigurationFileFormat>(stream, resolver);
+                using (Stream stream = File.OpenRead(path))
+                {
+                    return JsonSerializer.Deserialize<ConfigurationFileFormat>(stream, resolver);
+                }
+            }
+            catch
+            {
+                return null;
             }
         }
 
