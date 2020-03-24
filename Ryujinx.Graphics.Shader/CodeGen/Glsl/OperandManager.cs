@@ -114,24 +114,6 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
             return ubName + "." + GetSwizzleMask(offset & 3);
         }
 
-        private static string GetVec4Indexed(string vectorName, string indexExpr)
-        {
-            bool canIndexVec4 = false;
-            if (canIndexVec4)
-            {
-                return $"{vectorName}[{indexExpr}]";
-            } 
-            else
-            {
-                string result = $"{vectorName}.x";
-                for (int i = 1; i < 4; i++)
-                {
-                    result = $"(({indexExpr}) == {i}) ? ({vectorName}.{GetSwizzleMask(i)}) : ({result})";
-                }
-                return $"({result})";
-            }
-        }
-
         public static string GetConstantBufferName(IAstNode slot, string offsetExpr, ShaderStage stage)
         {
             // Non-constant slots are not supported.
@@ -142,8 +124,9 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
             string ubName = GetUbName(stage, operand.Value);
 
             string index0 = "[" + offsetExpr + " >> 2]";
+            string index1 = "[" + offsetExpr + " & 3]";
 
-            return GetVec4Indexed(ubName + index0, offsetExpr + " & 3");
+            return ubName + index0 + index1;
         }
 
         public static string GetOutAttributeName(AstOperand attr, ShaderStage stage)
