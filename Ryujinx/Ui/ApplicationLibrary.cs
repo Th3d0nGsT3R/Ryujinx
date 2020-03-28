@@ -532,20 +532,40 @@ namespace Ryujinx.Ui
                 };
 
                 byte[] data = JsonSerializer.Serialize(appMetadata, resolver);
-                File.WriteAllText(metadataFile, Encoding.UTF8.GetString(data, 0, data.Length).PrettyPrintJson());
+                using (TextWriter textWriter = new StreamWriter(File.Create(metadataFile, 65536, FileOptions.WriteThrough)))
+                {
+                    textWriter.Write(Encoding.UTF8.GetString(data, 0, data.Length).PrettyPrintJson());
+                }
             }
 
             using (Stream stream = File.OpenRead(metadataFile))
             {
-                appMetadata = JsonSerializer.Deserialize<ApplicationMetadata>(stream, resolver);
+                try
+                {
+                    appMetadata = JsonSerializer.Deserialize<ApplicationMetadata>(stream, resolver);
+                }
+                catch (JsonParsingException)
+                {
+                    Logger.PrintWarning(LogClass.Application, $"Failed to parse metadata json for {titleId}. Loading defaults.");
+                    
+                    appMetadata = new ApplicationMetadata
+                    {
+                        Favorite   = false,
+                        TimePlayed = 0,
+                        LastPlayed = "Never"
+                    };
+                }
             }
 
             if (modifyFunction != null)
             {
                 modifyFunction(appMetadata);
 
-                byte[] saveData = JsonSerializer.Serialize(appMetadata, resolver);
-                File.WriteAllText(metadataFile, Encoding.UTF8.GetString(saveData, 0, saveData.Length).PrettyPrintJson());
+                byte[] data = JsonSerializer.Serialize(appMetadata, resolver);
+                using (TextWriter textWriter = new StreamWriter(File.Create(metadataFile, 65536, FileOptions.WriteThrough)))
+                {
+                    textWriter.Write(Encoding.UTF8.GetString(data, 0, data.Length).PrettyPrintJson());
+                }
             }
 
             return appMetadata;
