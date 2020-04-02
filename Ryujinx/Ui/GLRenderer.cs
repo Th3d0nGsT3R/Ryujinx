@@ -138,7 +138,10 @@ namespace Ryujinx.Ui
                     {
                         if (keyboard.IsKeyDown(OpenTK.Input.Key.Escape))
                         {
-                            Exit();
+                            if (GtkDialog.CreateExitDialog())
+                            {
+                                Exit();
+                            }
                         }
                         else
                         {
@@ -339,7 +342,7 @@ namespace Ryujinx.Ui
                         _device.EnableDeviceVsync, 
                         $"Host: {_device.Statistics.GetSystemFrameRate():00.00} FPS", 
                         $"Game: {_device.Statistics.GetGameFrameRate():00.00} FPS",
-                        $"GPU: {_renderer.GpuVendor.Trim().Split(' ')[0]}"));
+                        $"GPU: {_renderer.GpuVendor}"));
 
                     _device.System.SignalVsync();
 
