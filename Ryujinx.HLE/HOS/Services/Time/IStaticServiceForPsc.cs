@@ -401,11 +401,7 @@ namespace Ryujinx.HLE.HOS.Services.Time
         {
             Debug.Assert(ipcDesc.Size == Marshal.SizeOf<ClockSnapshot>());
 
-            byte[] temp = new byte[ipcDesc.Size];
-
-            context.Memory.Read((ulong)ipcDesc.Position, temp);
-
-            using (BinaryReader bufferReader = new BinaryReader(new MemoryStream(temp)))
+            using (BinaryReader bufferReader = new BinaryReader(new MemoryStream(context.Memory.ReadBytes(ipcDesc.Position, ipcDesc.Size))))
             {
                 return bufferReader.ReadStruct<ClockSnapshot>();
             }
@@ -422,7 +418,7 @@ namespace Ryujinx.HLE.HOS.Services.Time
                 bufferWriter.WriteStruct(clockSnapshot);
             }
 
-            context.Memory.Write((ulong)ipcDesc.Position, memory.ToArray());
+            context.Memory.WriteBytes(ipcDesc.Position, memory.ToArray());
             memory.Dispose();
         }
     }

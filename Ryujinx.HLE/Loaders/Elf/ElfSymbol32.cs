@@ -5,8 +5,8 @@
         public uint   NameOffset;
         public uint   ValueAddress;
         public uint   Size;
-        public byte   Info;
-        public byte   Other;
+        public char   Info;
+        public char   Other;
         public ushort SectionIndex;
     }
 }

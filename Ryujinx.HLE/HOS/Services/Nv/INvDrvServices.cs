@@ -102,9 +102,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                 byte[] outputData = new byte[outputDataSize];
 
-                byte[] temp = new byte[inputDataSize];
-
-                context.Memory.Read((ulong)inputDataPosition, temp);
+                byte[] temp = context.Memory.ReadBytes(inputDataPosition, inputDataSize);
 
                 Buffer.BlockCopy(temp, 0, outputData, 0, temp.Length);
 
@@ -118,11 +116,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
             }
             else
             {
-                byte[] temp = new byte[inputDataSize];
-
-                context.Memory.Read((ulong)inputDataPosition, temp);
-
-                arguments = new Span<byte>(temp);
+                arguments = new Span<byte>(context.Memory.ReadBytes(inputDataPosition, inputDataSize));
             }
 
             return NvResult.Success;
@@ -272,7 +266,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                         if (errorCode == NvResult.Success && (ioctlCommand.DirectionValue & NvIoctl.Direction.Write) != 0)
                         {
-                            context.Memory.Write((ulong)context.Request.GetBufferType0x22(0).Position, arguments.ToArray());
+                            context.Memory.WriteBytes(context.Request.GetBufferType0x22(0).Position, arguments.ToArray());
                         }
                     }
                 }
@@ -441,11 +435,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                 errorCode = GetIoctlArgument(context, ioctlCommand, out Span<byte> arguments);
 
-                byte[] temp = new byte[inlineInBufferSize];
-
-                context.Memory.Read((ulong)inlineInBufferPosition, temp);
-
-                Span<byte> inlineInBuffer = new Span<byte>(temp);
+                Span<byte> inlineInBuffer = new Span<byte>(context.Memory.ReadBytes(inlineInBufferPosition, inlineInBufferSize));
 
                 if (errorCode == NvResult.Success)
                 {
@@ -464,7 +454,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                         if (errorCode == NvResult.Success && (ioctlCommand.DirectionValue & NvIoctl.Direction.Write) != 0)
                         {
-                            context.Memory.Write((ulong)context.Request.GetBufferType0x22(0).Position, arguments.ToArray());
+                            context.Memory.WriteBytes(context.Request.GetBufferType0x22(0).Position, arguments.ToArray());
                         }
                     }
                 }
@@ -490,11 +480,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                 errorCode = GetIoctlArgument(context, ioctlCommand, out Span<byte> arguments);
 
-                byte[] temp = new byte[inlineOutBufferSize];
-
-                context.Memory.Read((ulong)inlineOutBufferPosition, temp);
-
-                Span<byte> inlineOutBuffer = new Span<byte>(temp);
+                Span<byte> inlineOutBuffer = new Span<byte>(context.Memory.ReadBytes(inlineOutBufferPosition, inlineOutBufferSize));
 
                 if (errorCode == NvResult.Success)
                 {
@@ -513,8 +499,8 @@ namespace Ryujinx.HLE.HOS.Services.Nv
 
                         if (errorCode == NvResult.Success && (ioctlCommand.DirectionValue & NvIoctl.Direction.Write) != 0)
                         {
-                            context.Memory.Write((ulong)context.Request.GetBufferType0x22(0).Position, arguments.ToArray());
-                            context.Memory.Write((ulong)inlineOutBufferPosition, inlineOutBuffer.ToArray());
+                            context.Memory.WriteBytes(context.Request.GetBufferType0x22(0).Position, arguments.ToArray());
+                            context.Memory.WriteBytes(inlineOutBufferPosition, inlineOutBuffer.ToArray());
                         }
                     }
                 }

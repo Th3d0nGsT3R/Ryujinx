@@ -333,7 +333,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs
 
             Result result = _baseFileSystemProxy.FindSaveDataWithFilter(out long count, infoBuffer, spaceId, ref filter);
 
-            context.Memory.Write((ulong)bufferPosition, infoBuffer);
+            context.Memory.WriteBytes(bufferPosition, infoBuffer);
             context.ResponseData.Write(count);
 
             return (ResultCode)result.Value;

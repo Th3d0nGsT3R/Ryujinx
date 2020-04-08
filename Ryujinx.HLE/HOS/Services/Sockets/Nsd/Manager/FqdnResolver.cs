@@ -108,11 +108,8 @@ namespace Ryujinx.HLE.HOS.Services.Sockets.Nsd.Manager
         {
             (long inputPosition, long inputSize)  = context.Request.GetBufferType0x21();
 
-            byte[] addressBuffer = new byte[inputSize];
-
-            context.Memory.Read((ulong)inputPosition, addressBuffer);
-
-            string address = Encoding.UTF8.GetString(addressBuffer);
+            byte[] addressBuffer = context.Memory.ReadBytes(inputPosition, inputSize);
+            string address       = Encoding.UTF8.GetString(addressBuffer);
 
             resultCode = Resolve(context, address, out resolvedAddress);
 

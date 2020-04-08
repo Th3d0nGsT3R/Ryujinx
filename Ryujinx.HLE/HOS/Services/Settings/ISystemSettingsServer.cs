@@ -35,7 +35,7 @@ namespace Ryujinx.HLE.HOS.Services.Settings
 
             if (firmwareData != null)
             {
-                context.Memory.Write((ulong)replyPos, firmwareData);
+                context.Memory.WriteBytes(replyPos, firmwareData);
 
                 return ResultCode.Success;
             }
@@ -78,7 +78,7 @@ namespace Ryujinx.HLE.HOS.Services.Settings
 
                 writer.Write(Encoding.ASCII.GetBytes(build));
 
-                context.Memory.Write((ulong)replyPos, ms.ToArray());
+                context.Memory.WriteBytes(replyPos, ms.ToArray());
             }
 
             return ResultCode.Success;
@@ -114,15 +114,10 @@ namespace Ryujinx.HLE.HOS.Services.Settings
             long namePos  = context.Request.PtrBuff[1].Position;
             long nameSize = context.Request.PtrBuff[1].Size;
 
-            byte[] classBuffer = new byte[classSize];
+            byte[] Class = context.Memory.ReadBytes(classPos, classSize);
+            byte[] name  = context.Memory.ReadBytes(namePos, nameSize);
 
-            context.Memory.Read((ulong)classPos, classBuffer);
-
-            byte[] nameBuffer = new byte[nameSize];
-
-            context.Memory.Read((ulong)namePos, nameBuffer);
-
-            string askedSetting = Encoding.ASCII.GetString(classBuffer).Trim('\0') + "!" + Encoding.ASCII.GetString(nameBuffer).Trim('\0');
+            string askedSetting = Encoding.ASCII.GetString(Class).Trim('\0') + "!" + Encoding.ASCII.GetString(name).Trim('\0');
 
             NxSettings.Settings.TryGetValue(askedSetting, out object nxSetting);
 
@@ -166,15 +161,10 @@ namespace Ryujinx.HLE.HOS.Services.Settings
             long replyPos  = context.Request.ReceiveBuff[0].Position;
             long replySize = context.Request.ReceiveBuff[0].Size;
 
-            byte[] classBuffer = new byte[classSize];
+            byte[] Class = context.Memory.ReadBytes(classPos, classSize);
+            byte[] name  = context.Memory.ReadBytes(namePos, nameSize);
 
-            context.Memory.Read((ulong)classPos, classBuffer);
-
-            byte[] nameBuffer = new byte[nameSize];
-
-            context.Memory.Read((ulong)namePos, nameBuffer);
-
-            string askedSetting = Encoding.ASCII.GetString(classBuffer).Trim('\0') + "!" + Encoding.ASCII.GetString(nameBuffer).Trim('\0');
+            string askedSetting = Encoding.ASCII.GetString(Class).Trim('\0') + "!" + Encoding.ASCII.GetString(name).Trim('\0');
 
             NxSettings.Settings.TryGetValue(askedSetting, out object nxSetting);
 
@@ -207,7 +197,7 @@ namespace Ryujinx.HLE.HOS.Services.Settings
                     throw new NotImplementedException(nxSetting.GetType().Name);
                 }
 
-                context.Memory.Write((ulong)replyPos, settingBuffer);
+                context.Memory.WriteBytes(replyPos, settingBuffer);
 
                 Logger.PrintDebug(LogClass.ServiceSet, $"{askedSetting} set value: {nxSetting} as {nxSetting.GetType()}");
             }

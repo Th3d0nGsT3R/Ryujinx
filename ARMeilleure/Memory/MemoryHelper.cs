@@ -13,12 +13,12 @@ namespace ARMeilleure.Memory
 
             for (int offs = 0; offs < size8; offs += 8)
             {
-                memory.Write<long>((ulong)(position + offs), 0);
+                memory.WriteInt64(position + offs, 0);
             }
 
             for (int offs = size8; offs < (size - size8); offs++)
             {
-                memory.Write<byte>((ulong)(position + offs), 0);
+                memory.WriteByte(position + offs, 0);
             }
         }
 
@@ -26,9 +26,7 @@ namespace ARMeilleure.Memory
         {
             long size = Marshal.SizeOf<T>();
 
-            byte[] data = new byte[size];
-
-           memory.Read((ulong)position, data);
+            byte[] data = memory.ReadBytes(position, size);
 
             fixed (byte* ptr = data)
             {
@@ -47,7 +45,7 @@ namespace ARMeilleure.Memory
                 Marshal.StructureToPtr<T>(value, (IntPtr)ptr, false);
             }
 
-            memory.Write((ulong)position, data);
+            memory.WriteBytes(position, data);
         }
 
         public static string ReadAsciiString(MemoryManager memory, long position, long maxSize = -1)
@@ -56,7 +54,7 @@ namespace ARMeilleure.Memory
             {
                 for (long offs = 0; offs < maxSize || maxSize == -1; offs++)
                 {
-                    byte value = memory.Read<byte>((ulong)(position + offs));
+                    byte value = (byte)memory.ReadByte(position + offs);
 
                     if (value == 0)
                     {

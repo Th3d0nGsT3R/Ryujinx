@@ -17,13 +17,11 @@ namespace ARMeilleure.State
                                       RegisterConsts.FlagsCount   * FlagSize +
                                       RegisterConsts.FpFlagsCount * FlagSize + ExtraSize;
 
-        private IMemoryBlock _block;
+        public IntPtr BasePtr { get; }
 
-        public IntPtr BasePtr => _block.Pointer;
-
-        public NativeContext(IMemoryAllocator allocator)
+        public NativeContext()
         {
-            _block = allocator.Allocate(TotalSize);
+            BasePtr = MemoryManagement.Allocate(TotalSize);
         }
 
         public ulong GetX(int index)
@@ -195,7 +193,7 @@ namespace ARMeilleure.State
 
         public void Dispose()
         {
-            _block.Dispose();
+            MemoryManagement.Free(BasePtr);
         }
     }
 }

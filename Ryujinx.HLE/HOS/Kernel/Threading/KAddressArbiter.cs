@@ -2,7 +2,6 @@ using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Kernel.Process;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 
 namespace Ryujinx.HLE.HOS.Kernel.Threading
 {
@@ -229,22 +228,18 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
 
             KProcess currentProcess = _system.Scheduler.GetCurrentProcess();
 
-            if (!currentProcess.CpuMemory.IsMapped(address))
-            {
-                // Invalid address.
-                requester.SignaledObj   = null;
-                requester.ObjSyncResult = KernelResult.InvalidMemState;
-
-                return null;
-            }
-
-            ref int mutexRef = ref currentProcess.CpuMemory.GetRef<int>(address);
-
             int mutexValue, newMutexValue;
 
             do
             {
-                mutexValue = mutexRef;
+                if (!KernelTransfer.UserToKernelInt32(_system, address, out mutexValue))
+                {
+                    // Invalid address.
+                    requester.SignaledObj   = null;
+                    requester.ObjSyncResult = KernelResult.InvalidMemState;
+
+                    return null;
+                }
 
                 if (mutexValue != 0)
                 {
@@ -257,7 +252,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
                     newMutexValue = requester.ThreadHandleForUserMutex;
                 }
             }
-            while (Interlocked.CompareExchange(ref mutexRef, newMutexValue, mutexValue) != mutexValue);
+            while (!currentProcess.CpuMemory.AtomicCompareExchangeInt32((long)address, mutexValue, newMutexValue));
 
             if (mutexValue == 0)
             {
@@ -394,7 +389,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
 
             if (shouldDecrement)
             {
-                currentValue = Interlocked.Decrement(ref currentProcess.CpuMemory.GetRef<int>(address)) + 1;
+                currentValue = currentProcess.CpuMemory.AtomicDecrementInt32((long)address) + 1;
             }
 
             if (currentValue < value)
@@ -485,20 +480,16 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
 
             KProcess currentProcess = _system.Scheduler.GetCurrentProcess();
 
-            if (!currentProcess.CpuMemory.IsMapped(address))
-            {
-                _system.CriticalSection.Leave();
-
-                return KernelResult.InvalidMemState;
-            }
-
-            ref int valueRef = ref currentProcess.CpuMemory.GetRef<int>(address);
-
             int currentValue;
 
             do
             {
-                currentValue = valueRef;
+                if (!KernelTransfer.UserToKernelInt32(_system, address, out currentValue))
+                {
+                    _system.CriticalSection.Leave();
+
+                    return KernelResult.InvalidMemState;
+                }
 
                 if (currentValue != value)
                 {
@@ -507,7 +498,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
                     return KernelResult.InvalidState;
                 }
             }
-            while (Interlocked.CompareExchange(ref valueRef, currentValue + 1, currentValue) != currentValue);
+            while (!currentProcess.CpuMemory.AtomicCompareExchangeInt32((long)address, currentValue, currentValue + 1));
 
             WakeArbiterThreads(address, count);
 
@@ -546,20 +537,16 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
 
             KProcess currentProcess = _system.Scheduler.GetCurrentProcess();
 
-            if (!currentProcess.CpuMemory.IsMapped(address))
-            {
-                _system.CriticalSection.Leave();
-
-                return KernelResult.InvalidMemState;
-            }
-
-            ref int valueRef = ref currentProcess.CpuMemory.GetRef<int>(address);
-
             int currentValue;
 
             do
             {
-                currentValue = valueRef;
+                if (!KernelTransfer.UserToKernelInt32(_system, address, out currentValue))
+                {
+                    _system.CriticalSection.Leave();
+
+                    return KernelResult.InvalidMemState;
+                }
 
                 if (currentValue != value)
                 {
@@ -568,7 +555,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
                     return KernelResult.InvalidState;
                 }
             }
-            while (Interlocked.CompareExchange(ref valueRef, currentValue + offset, currentValue) != currentValue);
+            while (!currentProcess.CpuMemory.AtomicCompareExchangeInt32((long)address, currentValue, currentValue + offset));
 
             WakeArbiterThreads(address, count);
 

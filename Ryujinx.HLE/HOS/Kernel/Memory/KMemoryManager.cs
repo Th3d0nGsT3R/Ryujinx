@@ -1840,7 +1840,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Memory
             {
                 ulong unusedSizeBefore = address - addressTruncated;
 
-                _system.Device.Memory.ZeroFill(dstFirstPagePa, unusedSizeBefore);
+                _system.Device.Memory.Set(dstFirstPagePa, 0, unusedSizeBefore);
 
                 ulong copySize = addressRounded <= endAddr ? addressRounded - address : size;
 
@@ -1859,7 +1859,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Memory
 
             if (unusedSizeAfter != 0)
             {
-                _system.Device.Memory.ZeroFill(firstPageFillAddress, unusedSizeAfter);
+                _system.Device.Memory.Set(firstPageFillAddress, 0, unusedSizeAfter);
             }
 
             KPageList pages = new KPageList();
@@ -1919,7 +1919,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Memory
                     unusedSizeAfter = PageSize;
                 }
 
-                _system.Device.Memory.ZeroFill(lastPageFillAddr, unusedSizeAfter);
+                _system.Device.Memory.Set(lastPageFillAddr, 0, unusedSizeAfter);
 
                 if (pages.AddRange(dstFirstPagePa, 1) != KernelResult.Success)
                 {
@@ -3038,7 +3038,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Memory
                 {
                     ulong size = pagesCount * PageSize;
 
-                    _cpuMemory.Map(dstVa, srcPa - DramMemoryMap.DramBase, size);
+                    _cpuMemory.Map((long)dstVa, (long)(srcPa - DramMemoryMap.DramBase), (long)size);
 
                     result = KernelResult.Success;
 
@@ -3063,7 +3063,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Memory
                 {
                     ulong size = pagesCount * PageSize;
 
-                    _cpuMemory.Unmap(dstVa, size);
+                    _cpuMemory.Unmap((long)dstVa, (long)size);
 
                     result = KernelResult.Success;
 
@@ -3105,7 +3105,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Memory
             {
                 ulong size = pageNode.PagesCount * PageSize;
 
-                _cpuMemory.Map(address, pageNode.Address - DramMemoryMap.DramBase, size);
+                _cpuMemory.Map((long)address, (long)(pageNode.Address - DramMemoryMap.DramBase), (long)size);
 
                 address += size;
             }
@@ -3115,12 +3115,12 @@ namespace Ryujinx.HLE.HOS.Kernel.Memory
 
         public ulong GetDramAddressFromVa(ulong va)
         {
-            return _cpuMemory.GetPhysicalAddress(va);
+            return (ulong)_cpuMemory.GetPhysicalAddress((long)va);
         }
 
         public bool ConvertVaToPa(ulong va, out ulong pa)
         {
-            pa = DramMemoryMap.DramBase + _cpuMemory.GetPhysicalAddress(va);
+            pa = DramMemoryMap.DramBase + (ulong)_cpuMemory.GetPhysicalAddress((long)va);
 
             return true;
         }

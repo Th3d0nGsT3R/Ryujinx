@@ -123,11 +123,7 @@ namespace Ryujinx.HLE.HOS.Services.Time
 
             (long bufferPosition, long bufferSize) = context.Request.GetBufferType0x21();
 
-            byte[] temp = new byte[bufferSize];
-
-            context.Memory.Read((ulong)bufferPosition, temp);
-
-            using (MemoryStream timeZoneBinaryStream = new MemoryStream(temp))
+            using (MemoryStream timeZoneBinaryStream = new MemoryStream(context.Memory.ReadBytes(bufferPosition, bufferSize)))
             {
                 _timeManager.SetupTimeZoneManager(locationName, timeZoneUpdateTimePoint, totalLocationNameCount, timeZoneRuleVersion, timeZoneBinaryStream);
             }

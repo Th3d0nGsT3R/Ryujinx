@@ -233,7 +233,7 @@ namespace Ryujinx.HLE.HOS.Services.Ncm.Lr.LocationResolverManager
 
                 byte[] contentPathBuffer = Encoding.UTF8.GetBytes(contentPath);
 
-                context.Memory.Write((ulong)position, contentPathBuffer);
+                context.Memory.WriteBytes(position, contentPathBuffer);
             }
             else
             {

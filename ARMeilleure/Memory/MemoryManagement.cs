@@ -1,7 +1,8 @@
-﻿using System;
+using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
-namespace Ryujinx.Memory
+namespace ARMeilleure.Memory
 {
     public static class MemoryManagement
     {
@@ -24,18 +25,18 @@ namespace Ryujinx.Memory
             }
         }
 
-        public static IntPtr Reserve(ulong size)
+        public static IntPtr AllocateWriteTracked(ulong size)
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 IntPtr sizeNint = new IntPtr((long)size);
 
-                return MemoryManagementWindows.Reserve(sizeNint);
+                return MemoryManagementWindows.AllocateWriteTracked(sizeNint);
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
                      RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                return MemoryManagementUnix.Reserve(size);
+                return MemoryManagementUnix.Allocate(size);
             }
             else
             {
@@ -62,7 +63,7 @@ namespace Ryujinx.Memory
             }
         }
 
-        public static void Reprotect(IntPtr address, ulong size, MemoryPermission permission)
+        public static void Reprotect(IntPtr address, ulong size, MemoryProtection permission)
         {
             bool result;
 
@@ -85,6 +86,25 @@ namespace Ryujinx.Memory
             if (!result)
             {
                 throw new MemoryProtectionException(permission);
+            }
+        }
+
+        public static IntPtr Reserve(ulong size)
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                IntPtr sizeNint = new IntPtr((long)size);
+
+                return MemoryManagementWindows.Reserve(sizeNint);
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ||
+                     RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                return MemoryManagementUnix.Reserve(size);
+            }
+            else
+            {
+                throw new PlatformNotSupportedException();
             }
         }
 

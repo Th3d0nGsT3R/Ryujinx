@@ -318,20 +318,16 @@ namespace ARMeilleure.Instructions
 
         private static Operand EmitAddressCheck(ArmEmitterContext context, Operand address, int size)
         {
-            ulong addressCheckMask = ~((1UL << context.Memory.AddressSpaceBits) - 1);
+            long addressCheckMask = ~(context.Memory.AddressSpaceSize - 1);
 
             addressCheckMask |= (1u << size) - 1;
 
-            return context.BitwiseAnd(address, Const(address.Type, (long)addressCheckMask));
+            return context.BitwiseAnd(address, Const(address.Type, addressCheckMask));
         }
 
-        private static Operand EmitPtPointerLoad(ArmEmitterContext context, Operand address, Operand lblSlowPath)
+        private static Operand EmitPtPointerLoad(ArmEmitterContext context, Operand address, Operand lblFallbackPath)
         {
-            int ptLevelBits = context.Memory.AddressSpaceBits - 12; // 12 = Number of page bits.
-            int ptLevelSize = 1 << ptLevelBits;
-            int ptLevelMask = ptLevelSize - 1;
-
-            Operand pte = Const(context.Memory.PageTablePointer.ToInt64());
+            Operand pte = Const(context.Memory.PageTable.ToInt64());
 
             int bit = MemoryManager.PageBits;
 
@@ -339,11 +335,11 @@ namespace ARMeilleure.Instructions
             {
                 Operand addrPart = context.ShiftRightUI(address, Const(bit));
 
-                bit += ptLevelBits;
+                bit += context.Memory.PtLevelBits;
 
                 if (bit < context.Memory.AddressSpaceBits)
                 {
-                    addrPart = context.BitwiseAnd(addrPart, Const(addrPart.Type, ptLevelMask));
+                    addrPart = context.BitwiseAnd(addrPart, Const(addrPart.Type, context.Memory.PtLevelMask));
                 }
 
                 Operand pteOffset = context.ShiftLeft(addrPart, Const(3));
@@ -359,7 +355,9 @@ namespace ARMeilleure.Instructions
             }
             while (bit < context.Memory.AddressSpaceBits);
 
-            context.BranchIfTrue(lblSlowPath, context.ICompareLess(pte, Const(0L)));
+            Operand hasFlagSet = context.BitwiseAnd(pte, Const((long)MemoryManager.PteFlagsMask));
+
+            context.BranchIfTrue(lblFallbackPath, hasFlagSet);
 
             Operand pageOffset = context.BitwiseAnd(address, Const(address.Type, MemoryManager.PageMask));
 
@@ -368,7 +366,9 @@ namespace ARMeilleure.Instructions
                 pageOffset = context.ZeroExtend32(OperandType.I64, pageOffset);
             }
 
-            return context.Add(pte, pageOffset);
+            Operand physAddr = context.Add(pte, pageOffset);
+
+            return physAddr;
         }
 
         private static void EmitReadIntFallback(ArmEmitterContext context, Operand address, int rt, int size)

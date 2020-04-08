@@ -261,7 +261,7 @@ namespace Ryujinx.HLE.HOS.Services.Mii.StaticService
 
             ResultCode result = Export(data);
 
-            context.Memory.Write((ulong)outputBuffer.Position, data.ToArray());
+            context.Memory.WriteBytes(outputBuffer.Position, data.ToArray());
 
             return result;
         }
@@ -350,9 +350,7 @@ namespace Ryujinx.HLE.HOS.Services.Mii.StaticService
             }
             else
             {
-                rawData = new byte[ipcBuff.Size];
-
-                context.Memory.Read((ulong)ipcBuff.Position, rawData);
+                rawData = context.Memory.ReadBytes(ipcBuff.Position, ipcBuff.Size);
             }
 
             return new Span<byte>(rawData);
@@ -367,7 +365,7 @@ namespace Ryujinx.HLE.HOS.Services.Mii.StaticService
         {
             Span<byte> rawData = MemoryMarshal.Cast<T, byte>(span);
 
-            context.Memory.Write((ulong)ipcBuff.Position, rawData);
+            context.Memory.WriteBytes(ipcBuff.Position, rawData.ToArray());
         }
 
         protected abstract bool IsUpdated(SourceFlag flag);

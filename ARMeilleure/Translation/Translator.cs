@@ -9,7 +9,6 @@ using System.Collections.Concurrent;
 using System.Threading;
 
 using static ARMeilleure.IntermediateRepresentation.OperandHelper;
-using static ARMeilleure.IntermediateRepresentation.OperationHelper;
 
 namespace ARMeilleure.Translation
 {
@@ -19,31 +18,30 @@ namespace ARMeilleure.Translation
 
         private const bool AlwaysTranslateFunctions = true; // If false, only translates a single block for lowCq.
 
-        private readonly IMemoryManager _memory;
+        private MemoryManager _memory;
 
-        private readonly ConcurrentDictionary<ulong, TranslatedFunction> _funcs;
+        private ConcurrentDictionary<ulong, TranslatedFunction> _funcs;
 
-        private readonly JumpTable _jumpTable;
+        private JumpTable _jumpTable;
 
-        private readonly PriorityQueue<RejitRequest> _backgroundQueue;
+        private PriorityQueue<RejitRequest> _backgroundQueue;
 
-        private readonly AutoResetEvent _backgroundTranslatorEvent;
+        private AutoResetEvent _backgroundTranslatorEvent;
 
         private volatile int _threadCount;
 
-        public Translator(IMemoryAllocator allocator, IMemoryManager memory)
+        public Translator(MemoryManager memory)
         {
             _memory = memory;
 
             _funcs = new ConcurrentDictionary<ulong, TranslatedFunction>();
 
-            _jumpTable = new JumpTable(allocator);
+            _jumpTable = JumpTable.Instance;
 
             _backgroundQueue = new PriorityQueue<RejitRequest>(2);
 
             _backgroundTranslatorEvent = new AutoResetEvent(false);
 
-            JitCache.Initialize(allocator);
             DirectCallStubs.InitializeStubs();
         }
 
@@ -148,8 +146,8 @@ namespace ARMeilleure.Translation
         {
             ArmEmitterContext context = new ArmEmitterContext(_memory, _jumpTable, (long)address, highCq, Aarch32Mode.User);
 
-            PrepareOperandPool(highCq);
-            PrepareOperationPool(highCq);
+            OperandHelper.PrepareOperandPool(highCq);
+            OperationHelper.PrepareOperationPool(highCq);
 
             Logger.StartPass(PassName.Decoding);
 
@@ -180,12 +178,14 @@ namespace ARMeilleure.Translation
 
             OperandType[] argTypes = new OperandType[] { OperandType.I64 };
 
-            CompilerOptions options = highCq ? CompilerOptions.HighCq : CompilerOptions.None;
+            CompilerOptions options = highCq
+                ? CompilerOptions.HighCq
+                : CompilerOptions.None;
 
             GuestFunction func = Compiler.Compile<GuestFunction>(cfg, argTypes, OperandType.I64, options);
 
-            ResetOperandPool(highCq);
-            ResetOperationPool(highCq);
+            OperandHelper.ResetOperandPool(highCq);
+            OperationHelper.ResetOperationPool(highCq);
 
             return new TranslatedFunction(func, rejit: !highCq);
         }

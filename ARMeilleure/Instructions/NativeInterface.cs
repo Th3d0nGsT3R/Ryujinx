@@ -3,7 +3,6 @@ using ARMeilleure.State;
 using ARMeilleure.Translation;
 using System;
 using System.Runtime.InteropServices;
-using System.Threading;
 
 namespace ARMeilleure.Instructions
 {
@@ -13,15 +12,15 @@ namespace ARMeilleure.Instructions
 
         private class ThreadContext
         {
-            public State.ExecutionContext Context    { get; }
-            public IMemoryManager         Memory     { get; }
-            public Translator             Translator { get; }
+            public ExecutionContext Context    { get; }
+            public MemoryManager    Memory     { get; }
+            public Translator       Translator { get; }
 
             public ulong ExclusiveAddress   { get; set; }
             public ulong ExclusiveValueLow  { get; set; }
             public ulong ExclusiveValueHigh { get; set; }
 
-            public ThreadContext(State.ExecutionContext context, IMemoryManager memory, Translator translator)
+            public ThreadContext(ExecutionContext context, MemoryManager memory, Translator translator)
             {
                 Context    = context;
                 Memory     = memory;
@@ -34,7 +33,7 @@ namespace ARMeilleure.Instructions
         [ThreadStatic]
         private static ThreadContext _context;
 
-        public static void RegisterThread(State.ExecutionContext context, IMemoryManager memory, Translator translator)
+        public static void RegisterThread(ExecutionContext context, MemoryManager memory, Translator translator)
         {
             _context = new ThreadContext(context, memory, translator);
         }
@@ -94,8 +93,7 @@ namespace ARMeilleure.Instructions
 
         public static uint GetFpscr()
         {
-            var context = GetContext();
-
+            ExecutionContext context = GetContext();
             uint result = (uint)(context.Fpsr & FPSR.A32Mask) | (uint)(context.Fpcr & FPCR.A32Mask);
 
             result |= context.GetFPstateFlag(FPState.NFlag) ? (1u << 31) : 0;
@@ -148,7 +146,7 @@ namespace ARMeilleure.Instructions
 
         public static void SetFpscr(uint value)
         {
-            var context = GetContext();
+            ExecutionContext context = GetContext();
 
             context.SetFPstateFlag(FPState.NFlag, (value & (1u << 31)) != 0);
             context.SetFPstateFlag(FPState.ZFlag, (value & (1u << 30)) != 0);
@@ -173,34 +171,34 @@ namespace ARMeilleure.Instructions
         #region "Read"
         public static byte ReadByte(ulong address)
         {
-            return GetMemoryManager().Read<byte>(address);
+            return GetMemoryManager().ReadByte((long)address);
         }
 
         public static ushort ReadUInt16(ulong address)
         {
-            return GetMemoryManager().Read<ushort>(address);
+            return GetMemoryManager().ReadUInt16((long)address);
         }
 
         public static uint ReadUInt32(ulong address)
         {
-            return GetMemoryManager().Read<uint>(address);
+            return GetMemoryManager().ReadUInt32((long)address);
         }
 
         public static ulong ReadUInt64(ulong address)
         {
-            return GetMemoryManager().Read<ulong>(address);
+            return GetMemoryManager().ReadUInt64((long)address);
         }
 
         public static V128 ReadVector128(ulong address)
         {
-            return GetMemoryManager().Read<V128>(address);
+            return GetMemoryManager().ReadVector128((long)address);
         }
 #endregion
 
 #region "Read exclusive"
         public static byte ReadByteExclusive(ulong address)
         {
-            byte value = _context.Memory.Read<byte>(address);
+            byte value = _context.Memory.ReadByte((long)address);
 
             _context.ExclusiveAddress   = GetMaskedExclusiveAddress(address);
             _context.ExclusiveValueLow  = value;
@@ -211,7 +209,7 @@ namespace ARMeilleure.Instructions
 
         public static ushort ReadUInt16Exclusive(ulong address)
         {
-            ushort value = _context.Memory.Read<ushort>(address);
+            ushort value = _context.Memory.ReadUInt16((long)address);
 
             _context.ExclusiveAddress   = GetMaskedExclusiveAddress(address);
             _context.ExclusiveValueLow  = value;
@@ -222,7 +220,7 @@ namespace ARMeilleure.Instructions
 
         public static uint ReadUInt32Exclusive(ulong address)
         {
-            uint value = _context.Memory.Read<uint>(address);
+            uint value = _context.Memory.ReadUInt32((long)address);
 
             _context.ExclusiveAddress   = GetMaskedExclusiveAddress(address);
             _context.ExclusiveValueLow  = value;
@@ -233,7 +231,7 @@ namespace ARMeilleure.Instructions
 
         public static ulong ReadUInt64Exclusive(ulong address)
         {
-            ulong value = _context.Memory.Read<ulong>(address);
+            ulong value = _context.Memory.ReadUInt64((long)address);
 
             _context.ExclusiveAddress   = GetMaskedExclusiveAddress(address);
             _context.ExclusiveValueLow  = value;
@@ -244,7 +242,7 @@ namespace ARMeilleure.Instructions
 
         public static V128 ReadVector128Exclusive(ulong address)
         {
-            V128 value = MemoryManagerPal.AtomicLoad128(ref _context.Memory.GetRef<V128>(address));
+            V128 value = _context.Memory.AtomicLoadInt128((long)address);
 
             _context.ExclusiveAddress   = GetMaskedExclusiveAddress(address);
             _context.ExclusiveValueLow  = value.GetUInt64(0);
@@ -252,32 +250,32 @@ namespace ARMeilleure.Instructions
 
             return value;
         }
-        #endregion
+#endregion
 
-        #region "Write"
+#region "Write"
         public static void WriteByte(ulong address, byte value)
         {
-            GetMemoryManager().Write(address, value);
+            GetMemoryManager().WriteByte((long)address, value);
         }
 
         public static void WriteUInt16(ulong address, ushort value)
         {
-            GetMemoryManager().Write(address, value);
+            GetMemoryManager().WriteUInt16((long)address, value);
         }
 
         public static void WriteUInt32(ulong address, uint value)
         {
-            GetMemoryManager().Write(address, value);
+            GetMemoryManager().WriteUInt32((long)address, value);
         }
 
         public static void WriteUInt64(ulong address, ulong value)
         {
-            GetMemoryManager().Write(address, value);
+            GetMemoryManager().WriteUInt64((long)address, value);
         }
 
         public static void WriteVector128(ulong address, V128 value)
         {
-            GetMemoryManager().Write(address, value);
+            GetMemoryManager().WriteVector128((long)address, value);
         }
 #endregion
 
@@ -288,16 +286,10 @@ namespace ARMeilleure.Instructions
 
             if (success)
             {
-                ref int valueRef = ref _context.Memory.GetRefNoChecks<int>(address);
-
-                int currentValue = valueRef;
-
-                byte expected = (byte)_context.ExclusiveValueLow;
-
-                int expected32 = (currentValue & ~byte.MaxValue) | expected;
-                int desired32  = (currentValue & ~byte.MaxValue) | value;
-
-                success = Interlocked.CompareExchange(ref valueRef, desired32, expected32) == expected32;
+                success = _context.Memory.AtomicCompareExchangeByte(
+                    (long)address,
+                    (byte)_context.ExclusiveValueLow,
+                    (byte)value);
 
                 if (success)
                 {
@@ -314,16 +306,10 @@ namespace ARMeilleure.Instructions
 
             if (success)
             {
-                ref int valueRef = ref _context.Memory.GetRefNoChecks<int>(address);
-
-                int currentValue = valueRef;
-
-                ushort expected = (ushort)_context.ExclusiveValueLow;
-
-                int expected32 = (currentValue & ~ushort.MaxValue) | expected;
-                int desired32  = (currentValue & ~ushort.MaxValue) | value;
-
-                success = Interlocked.CompareExchange(ref valueRef, desired32, expected32) == expected32;
+                success = _context.Memory.AtomicCompareExchangeInt16(
+                    (long)address,
+                    (short)_context.ExclusiveValueLow,
+                    (short)value);
 
                 if (success)
                 {
@@ -340,9 +326,10 @@ namespace ARMeilleure.Instructions
 
             if (success)
             {
-                ref int valueRef = ref _context.Memory.GetRef<int>(address);
-
-                success = Interlocked.CompareExchange(ref valueRef, (int)value, (int)_context.ExclusiveValueLow) == (int)_context.ExclusiveValueLow;
+                success = _context.Memory.AtomicCompareExchangeInt32(
+                    (long)address,
+                    (int)_context.ExclusiveValueLow,
+                    (int)value);
 
                 if (success)
                 {
@@ -359,9 +346,10 @@ namespace ARMeilleure.Instructions
 
             if (success)
             {
-                ref long valueRef = ref _context.Memory.GetRef<long>(address);
-
-                success = Interlocked.CompareExchange(ref valueRef, (long)value, (long)_context.ExclusiveValueLow) == (long)_context.ExclusiveValueLow;
+                success = _context.Memory.AtomicCompareExchangeInt64(
+                    (long)address,
+                    (long)_context.ExclusiveValueLow,
+                    (long)value);
 
                 if (success)
                 {
@@ -380,9 +368,7 @@ namespace ARMeilleure.Instructions
             {
                 V128 expected = new V128(_context.ExclusiveValueLow, _context.ExclusiveValueHigh);
 
-                ref V128 location = ref _context.Memory.GetRef<V128>(address);
-
-                success = MemoryManagerPal.CompareAndSwap128(ref location, expected, value) == expected;
+                success = _context.Memory.AtomicCompareExchangeInt128((long)address, expected, value);
 
                 if (success)
                 {
@@ -392,7 +378,7 @@ namespace ARMeilleure.Instructions
 
             return success ? 0 : 1;
         }
-        #endregion
+#endregion
 
         private static ulong GetMaskedExclusiveAddress(ulong address)
         {
@@ -426,8 +412,7 @@ namespace ARMeilleure.Instructions
         {
             Statistics.PauseTimer();
 
-            var context = GetContext();
-
+            ExecutionContext context = GetContext();
             context.CheckInterrupt();
 
             Statistics.ResumeTimer();
@@ -435,12 +420,12 @@ namespace ARMeilleure.Instructions
             return context.Running;
         }
 
-        public static State.ExecutionContext GetContext()
+        public static ExecutionContext GetContext()
         {
             return _context.Context;
         }
 
-        public static IMemoryManager GetMemoryManager()
+        public static MemoryManager GetMemoryManager()
         {
             return _context.Memory;
         }
