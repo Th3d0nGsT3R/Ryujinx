@@ -100,6 +100,11 @@ namespace Ryujinx.HLE
                 : IntegrityCheckLevel.None;
         }
 
+        public void LoadGameCard()
+        {
+            System.LoadGameCard();
+        }
+
         public void LoadCart(string exeFsDir, string romFsFile = null)
         {
             System.LoadCart(exeFsDir, romFsFile);
