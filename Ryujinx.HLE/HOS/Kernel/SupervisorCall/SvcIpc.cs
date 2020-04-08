@@ -108,9 +108,7 @@ namespace Ryujinx.HLE.HOS.Kernel.SupervisorCall
 
         private KernelResult SendSyncRequest(ulong messagePtr, ulong size, int handle)
         {
-            byte[] messageData = new byte[size];
-
-            _process.CpuMemory.Read(messagePtr, messageData);
+            byte[] messageData = _process.CpuMemory.ReadBytes((long)messagePtr, (long)size);
 
             KClientSession clientSession = _process.HandleTable.GetObject<KClientSession>(handle);
 

@@ -32,9 +32,7 @@ namespace Ryujinx.HLE.HOS.Services.Vi.RootService.ApplicationDisplayService
             long dataPos  = context.Request.SendBuff[0].Position;
             long dataSize = context.Request.SendBuff[0].Size;
 
-            byte[] data = new byte[dataSize];
-
-            context.Memory.Read((ulong)dataPos, data);
+            byte[] data = context.Memory.ReadBytes(dataPos, dataSize);
 
             data = Parcel.GetParcelData(data);
 
@@ -78,9 +76,7 @@ namespace Ryujinx.HLE.HOS.Services.Vi.RootService.ApplicationDisplayService
 
             (long dataPos, long dataSize) = context.Request.GetBufferType0x21();
 
-            byte[] data = new byte[dataSize];
-
-            context.Memory.Read((ulong)dataPos, data);
+            byte[] data = context.Memory.ReadBytes(dataPos, dataSize);
 
             data = Parcel.GetParcelData(data);
 

@@ -129,11 +129,7 @@ namespace Ryujinx.HLE.HOS.Services.Time.StaticService
 
             ResultCode result;
 
-            byte[] temp = new byte[bufferSize];
-
-            context.Memory.Read((ulong)bufferPosition, temp);
-
-            using (MemoryStream timeZoneBinaryStream = new MemoryStream(temp))
+            using (MemoryStream timeZoneBinaryStream = new MemoryStream(context.Memory.ReadBytes(bufferPosition, bufferSize)))
             {
                 result = _timeZoneManager.SetDeviceLocationNameWithTimeZoneRule(locationName, timeZoneBinaryStream);
             }
@@ -160,11 +156,7 @@ namespace Ryujinx.HLE.HOS.Services.Time.StaticService
 
             ResultCode result;
 
-            byte[] temp = new byte[bufferSize];
-
-            context.Memory.Read((ulong)bufferPosition, temp);
-
-            using (MemoryStream timeZoneBinaryStream = new MemoryStream(temp))
+            using (MemoryStream timeZoneBinaryStream = new MemoryStream(context.Memory.ReadBytes(bufferPosition, bufferSize)))
             {
                 result = _timeZoneManager.ParseTimeZoneRuleBinary(out TimeZoneRule timeZoneRule, timeZoneBinaryStream);
 
@@ -254,7 +246,7 @@ namespace Ryujinx.HLE.HOS.Services.Time.StaticService
                 long outBufferPosition = context.Request.RecvListBuff[0].Position;
                 long outBufferSize     = context.Request.RecvListBuff[0].Size;
 
-                context.Memory.Write((ulong)outBufferPosition, posixTime);
+                context.Memory.WriteInt64(outBufferPosition, posixTime);
                 context.ResponseData.Write(1);
             }
 
@@ -274,7 +266,7 @@ namespace Ryujinx.HLE.HOS.Services.Time.StaticService
                 long outBufferPosition = context.Request.RecvListBuff[0].Position;
                 long outBufferSize     = context.Request.RecvListBuff[0].Size;
 
-                context.Memory.Write((ulong)outBufferPosition, posixTime);
+                context.Memory.WriteInt64(outBufferPosition, posixTime);
 
                 // There could be only one result on one calendar as leap seconds aren't supported.
                 context.ResponseData.Write(1);

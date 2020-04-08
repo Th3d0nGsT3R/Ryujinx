@@ -9,6 +9,13 @@ namespace ARMeilleure.Translation
 {
     class JumpTable
     {
+        public static JumpTable Instance { get; }
+
+        static JumpTable()
+        {
+            Instance = new JumpTable();
+        }
+
         // The jump table is a block of (guestAddress, hostAddress) function mappings.
         // Each entry corresponds to one branch in a JIT compiled function. The entries are
         // reserved specifically for each call.
@@ -53,23 +60,23 @@ namespace ARMeilleure.Translation
         public IntPtr JumpPointer => _jumpRegion.Pointer;
         public IntPtr DynamicPointer => _dynamicRegion.Pointer;
 
-        public JumpTable(IMemoryAllocator allocator)
+        public JumpTable()
         {
-            _jumpRegion = new ReservedRegion(allocator, JumpTableByteSize);
-            _dynamicRegion = new ReservedRegion(allocator, DynamicTableByteSize);
+            _jumpRegion = new ReservedRegion(JumpTableByteSize);
+            _dynamicRegion = new ReservedRegion(DynamicTableByteSize);
 
             _targets = new ConcurrentDictionary<ulong, TranslatedFunction>();
             _dependants = new ConcurrentDictionary<ulong, LinkedList<int>>();
         }
 
-        public void RegisterFunction(ulong address, TranslatedFunction func)
-        {
+        public void RegisterFunction(ulong address, TranslatedFunction func) {
             address &= ~3UL;
             _targets.AddOrUpdate(address, func, (key, oldFunc) => func);
             long funcPtr = func.GetPointer().ToInt64();
 
             // Update all jump table entries that target this address.
-            if (_dependants.TryGetValue(address, out LinkedList<int> myDependants))
+            LinkedList<int> myDependants;
+            if (_dependants.TryGetValue(address, out myDependants)) 
             {
                 lock (myDependants)
                 {
@@ -118,7 +125,8 @@ namespace ARMeilleure.Translation
             // Is the address we have already registered? If so, put the function address in the jump table.
             // If not, it will point to the direct call stub.
             long value = (long)DirectCallStubs.DirectCallStub(isJump);
-            if (_targets.TryGetValue((ulong)address, out TranslatedFunction func))
+            TranslatedFunction func;
+            if (_targets.TryGetValue((ulong)address, out func))
             {
                 value = func.GetPointer().ToInt64();
             }

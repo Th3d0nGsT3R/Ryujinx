@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Text;
 
 namespace ARMeilleure.Memory
 {
@@ -6,22 +8,20 @@ namespace ARMeilleure.Memory
     {
         private const int DefaultGranularity = 65536; // Mapping granularity in Windows.
 
-        public IMemoryBlock Block { get; }
+        public IntPtr Pointer { get; }
 
-        public IntPtr Pointer => Block.Pointer;
-
-        private readonly ulong _maxSize;
-        private readonly ulong _sizeGranularity;
+        private ulong _maxSize;
+        private ulong _sizeGranularity;
         private ulong _currentSize;
 
-        public ReservedRegion(IMemoryAllocator allocator, ulong maxSize, ulong granularity = 0)
+        public ReservedRegion(ulong maxSize, ulong granularity = 0)
         {
             if (granularity == 0)
             {
                 granularity = DefaultGranularity;
             }
 
-            Block = allocator.Reserve(maxSize);
+            Pointer = MemoryManagement.Reserve(maxSize);
             _maxSize = maxSize;
             _sizeGranularity = granularity;
             _currentSize = 0;
@@ -43,7 +43,7 @@ namespace ARMeilleure.Memory
                     {
                         ulong overflowBytes = desiredSize - _currentSize;
                         ulong moreToCommit = (((_sizeGranularity - 1) + overflowBytes) / _sizeGranularity) * _sizeGranularity; // Round up.
-                        Block.Commit(_currentSize, moreToCommit);
+                        MemoryManagement.Commit(new IntPtr((long)Pointer + (long)_currentSize), moreToCommit);
                         _currentSize += moreToCommit;
                     }
                 }

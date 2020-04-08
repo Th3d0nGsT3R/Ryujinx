@@ -1,12 +1,10 @@
 ﻿using ARMeilleure.Memory;
 using ARMeilleure.State;
 using ARMeilleure.Translation;
-
 using NUnit.Framework;
-
 using Ryujinx.Tests.Unicorn;
-
 using System;
+using System.Runtime.InteropServices;
 
 namespace Ryujinx.Tests.Cpu
 {
@@ -14,11 +12,11 @@ namespace Ryujinx.Tests.Cpu
     public class CpuTest32
     {
         private uint _currAddress;
-        private ulong _size;
+        private long _size;
 
         private uint _entryPoint;
 
-        private IMemoryBlock _ram;
+        private IntPtr _ramPointer;
 
         private MemoryManager _memory;
 
@@ -49,23 +47,20 @@ namespace Ryujinx.Tests.Cpu
 
             _entryPoint = _currAddress;
 
-            MemoryAllocator allocator = new MemoryAllocator();
-            _ram = allocator.Allocate(_size * 2);
-            _memory = new MemoryManager(allocator, _ram, 1UL << 16);
-            _memory.Map(_currAddress, 0, _size * 2);
+            _ramPointer = Marshal.AllocHGlobal(new IntPtr(_size * 2));
+            _memory = new MemoryManager(_ramPointer, addressSpaceBits: 16, useFlatPageTable: true);
+            _memory.Map((long)_currAddress, 0, _size*2);
 
-            _context = new ExecutionContext(allocator)
-            {
-                IsAarch32 = true
-            };
+            _context = new ExecutionContext();
+            _context.IsAarch32 = true;
 
-            _translator = new Translator(allocator, _memory);
+            _translator = new Translator(_memory);
 
             if (_unicornAvailable)
             {
                 _unicornEmu = new UnicornAArch32();
-                _unicornEmu.MemoryMap(_currAddress, _size, MemoryPermission.READ | MemoryPermission.EXEC);
-                _unicornEmu.MemoryMap(_currAddress + _size, _size, MemoryPermission.READ | MemoryPermission.WRITE);
+                _unicornEmu.MemoryMap(_currAddress, (ulong)_size, MemoryPermission.READ | MemoryPermission.EXEC);
+                _unicornEmu.MemoryMap((ulong)(_currAddress + _size), (ulong)_size, MemoryPermission.READ | MemoryPermission.WRITE);
                 _unicornEmu.PC = _entryPoint;
             }
         }
@@ -73,9 +68,7 @@ namespace Ryujinx.Tests.Cpu
         [TearDown]
         public void Teardown()
         {
-            _memory.Dispose();
-            _context.Dispose();
-            _ram.Dispose();
+            Marshal.FreeHGlobal(_ramPointer);
             _memory = null;
             _context = null;
             _translator = null;
@@ -90,11 +83,11 @@ namespace Ryujinx.Tests.Cpu
 
         protected void Opcode(uint opcode)
         {
-            _memory.Write(_currAddress, opcode);
+            _memory.WriteUInt32((long)_currAddress, opcode);
 
             if (_unicornAvailable)
             {
-                _unicornEmu.MemoryWrite32(_currAddress, opcode);
+                _unicornEmu.MemoryWrite32((ulong)_currAddress, opcode);
             }
 
             _currAddress += 4;
@@ -217,7 +210,7 @@ namespace Ryujinx.Tests.Cpu
 
         protected void SetWorkingMemory(byte[] data)
         {
-            _memory.Write(0x2000, data);
+            _memory.WriteBytes(0x2000, data);
 
             if (_unicornAvailable)
             {
@@ -364,10 +357,10 @@ namespace Ryujinx.Tests.Cpu
 
             if (usingMemory)
             {
-                ReadOnlySpan<byte> meilleureMem = _memory.GetSpan(0x2000, (int)_size);
-                byte[] unicornMem = _unicornEmu.MemoryRead(0x2000, _size);
+                byte[] meilleureMem = _memory.ReadBytes((long)(0x2000), _size);
+                byte[] unicornMem = _unicornEmu.MemoryRead((ulong)(0x2000), (ulong)_size);
 
-                for (int i = 0; i < (int)_size; i++)
+                for (int i = 0; i < _size; i++)
                 {
                     Assert.AreEqual(meilleureMem[i], unicornMem[i]);
                 }

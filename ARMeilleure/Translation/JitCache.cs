@@ -12,33 +12,35 @@ namespace ARMeilleure.Translation
         private const int PageMask = PageSize - 1;
 
         private const int CodeAlignment = 4; // Bytes
+
         private const int CacheSize = 2047 * 1024 * 1024;
 
         private static ReservedRegion _jitRegion;
+
+        private static IntPtr _basePointer => _jitRegion.Pointer;
+
         private static int _offset;
-        private static readonly List<JitCacheEntry> _cacheEntries = new List<JitCacheEntry>();
 
-        private static readonly object _lock = new object();
-        private static bool _initialized;
+        private static List<JitCacheEntry> _cacheEntries;
 
-        public static void Initialize(IMemoryAllocator allocator)
+        private static object _lock;
+
+        static JitCache()
         {
-            if (_initialized) return;
-            lock (_lock)
+            _jitRegion = new ReservedRegion(CacheSize);
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                if (_initialized) return;
-                _jitRegion = new ReservedRegion(allocator, CacheSize);
+                _jitRegion.ExpandIfNeeded(PageSize);
+                JitUnwindWindows.InstallFunctionTableHandler(_basePointer, CacheSize);
 
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    _jitRegion.ExpandIfNeeded(PageSize);
-                    JitUnwindWindows.InstallFunctionTableHandler(_jitRegion.Pointer, CacheSize);
-
-                    // The first page is used for the table based SEH structs.
-                    _offset = PageSize;
-                }
-                _initialized = true;
+                // The first page is used for the table based SEH structs.
+                _offset = PageSize;
             }
+
+            _cacheEntries = new List<JitCacheEntry>();
+
+            _lock = new object();
         }
 
         public static IntPtr Map(CompiledFunction func)
@@ -49,7 +51,7 @@ namespace ARMeilleure.Translation
             {
                 int funcOffset = Allocate(code.Length);
 
-                IntPtr funcPtr = _jitRegion.Pointer + funcOffset;
+                IntPtr funcPtr = _basePointer + funcOffset;
 
                 Marshal.Copy(code, 0, funcPtr, code.Length);
 
@@ -75,14 +77,18 @@ namespace ARMeilleure.Translation
 
             if (fullPagesSize != 0)
             {
-                _jitRegion.Block.MapAsRx((ulong)pageStart, (ulong)fullPagesSize);
+                IntPtr funcPtr = _basePointer + pageStart;
+
+                MemoryManagement.Reprotect(funcPtr, (ulong)fullPagesSize, MemoryProtection.ReadAndExecute);
             }
 
             int remaining = endOffs - pageEnd;
 
             if (remaining != 0)
             {
-                _jitRegion.Block.MapAsRwx((ulong)pageEnd, (ulong)remaining);
+                IntPtr funcPtr = _basePointer + pageEnd;
+
+                MemoryManagement.Reprotect(funcPtr, (ulong)remaining, MemoryProtection.ReadWriteExecute);
             }
         }
 
@@ -126,7 +132,7 @@ namespace ARMeilleure.Translation
                 }
             }
 
-            entry = default;
+            entry = default(JitCacheEntry);
 
             return false;
         }

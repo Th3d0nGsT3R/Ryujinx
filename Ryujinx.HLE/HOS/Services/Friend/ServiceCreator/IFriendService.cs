@@ -166,9 +166,7 @@ namespace Ryujinx.HLE.HOS.Services.Friend.ServiceCreator
             long position = context.Request.PtrBuff[0].Position;
             long size     = context.Request.PtrBuff[0].Size;
 
-            byte[] bufferContent = new byte[size];
-
-            context.Memory.Read((ulong)position, bufferContent);
+            byte[] bufferContent = context.Memory.ReadBytes(position, size);
 
             if (uuid.IsNull)
             {

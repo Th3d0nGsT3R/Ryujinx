@@ -17,8 +17,13 @@ namespace ARMeilleure.Translation
         private static GuestFunction _indirectCallStub;
         private static GuestFunction _indirectTailCallStub;
 
-        private static readonly object _lock = new object();
+        private static object _lock;
         private static bool _initialized;
+
+        static DirectCallStubs()
+        {
+            _lock = new object();
+        }
 
         public static void InitializeStubs()
         {
@@ -80,7 +85,11 @@ namespace ARMeilleure.Translation
                 OperandType.I64
             };
 
-            return Compiler.Compile<GuestFunction>(cfg, argTypes, OperandType.I64, CompilerOptions.HighCq);
+            return Compiler.Compile<GuestFunction>(
+                cfg,
+                argTypes,
+                OperandType.I64,
+                CompilerOptions.HighCq);
         }
 
         /// <summary>
@@ -112,7 +121,11 @@ namespace ARMeilleure.Translation
                 OperandType.I64
             };
 
-            return Compiler.Compile<GuestFunction>(cfg, argTypes, OperandType.I64, CompilerOptions.HighCq);
+            return Compiler.Compile<GuestFunction>(
+                cfg,
+                argTypes,
+                OperandType.I64,
+                CompilerOptions.HighCq);
         }
     }
 }

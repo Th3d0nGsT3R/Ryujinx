@@ -75,8 +75,8 @@ namespace Ryujinx.HLE.HOS.Services.Account.Acc
                     break;
                 }
 
-                context.Memory.Write((ulong)outputPosition + offset,     userProfile.UserId.High);
-                context.Memory.Write((ulong)outputPosition + offset + 8, userProfile.UserId.Low);
+                context.Memory.WriteInt64(outputPosition + (long)offset,     userProfile.UserId.High);
+                context.Memory.WriteInt64(outputPosition + (long)offset + 8, userProfile.UserId.Low);
 
                 offset += 0x10;
             }
@@ -240,9 +240,7 @@ namespace Ryujinx.HLE.HOS.Services.Account.Acc
                 return ResultCode.InvalidInputBufferSize;
             }
 
-            byte[] thumbnailBuffer = new byte[inputSize];
-
-            context.Memory.Read((ulong)inputPosition, thumbnailBuffer);
+            byte[] thumbnailBuffer = context.Memory.ReadBytes(inputPosition, inputSize);
 
             // TODO: Store thumbnailBuffer somewhere, in save data 0x8000000000000010 ?
 

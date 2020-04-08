@@ -1,12 +1,13 @@
 using ARMeilleure.IntermediateRepresentation;
 using ARMeilleure.State;
 using ARMeilleure.Translation;
+using System;
 
 namespace ARMeilleure.Memory
 {
     static class MemoryManagerPal
     {
-        private delegate V128 CompareExchange128(ref V128 location, V128 expected, V128 desired);
+        private delegate V128 CompareExchange128(IntPtr address, V128 expected, V128 desired);
 
         private static CompareExchange128 _compareExchange128;
 
@@ -17,14 +18,14 @@ namespace ARMeilleure.Memory
             _lock = new object();
         }
 
-        public static V128 AtomicLoad128(ref V128 location)
+        public static V128 AtomicLoad128(IntPtr address)
         {
-            return GetCompareAndSwap128()(ref location, V128.Zero, V128.Zero);
+            return GetCompareAndSwap128()(address, V128.Zero, V128.Zero);
         }
 
-        public static V128 CompareAndSwap128(ref V128 location, V128 expected, V128 desired)
+        public static V128 CompareAndSwap128(IntPtr address, V128 expected, V128 desired)
         {
-            return GetCompareAndSwap128()(ref location, expected, desired);
+            return GetCompareAndSwap128()(address, expected, desired);
         }
 
         private static CompareExchange128 GetCompareAndSwap128()

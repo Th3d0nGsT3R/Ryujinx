@@ -106,9 +106,9 @@ namespace Ryujinx.HLE.HOS.Services.Audio.AudioOutManager
                 context.Memory,
                 position);
 
-            byte[] buffer = new byte[data.SampleBufferSize];
-
-            context.Memory.Read((ulong)data.SampleBufferPtr, buffer);
+            byte[] buffer = context.Memory.ReadBytes(
+                data.SampleBufferPtr,
+                data.SampleBufferSize);
 
             _audioOut.AppendBuffer(_track, tag, buffer);
 
@@ -139,7 +139,7 @@ namespace Ryujinx.HLE.HOS.Services.Audio.AudioOutManager
                     tag = releasedBuffers[index];
                 }
 
-                context.Memory.Write((ulong)(position + index * 8), tag);
+                context.Memory.WriteInt64(position + index * 8, tag);
             }
 
             context.ResponseData.Write(releasedBuffers.Length);
