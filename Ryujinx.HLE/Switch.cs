@@ -18,7 +18,9 @@ namespace Ryujinx.HLE
     {
         public IAalOutput AudioOut { get; private set; }
 
-        internal DeviceMemory Memory { get; private set; }
+        internal MemoryAllocator Allocator { get; private set; }
+
+        internal MemoryBlockWrapper Memory { get; private set; }
 
         public GpuContext Gpu { get; private set; }
 
@@ -50,7 +52,9 @@ namespace Ryujinx.HLE
 
             AudioOut = audioOut;
 
-            Memory = new DeviceMemory();
+            Allocator = new MemoryAllocator();
+
+            Memory = new MemoryBlockWrapper(1UL << 32);
 
             Gpu = new GpuContext(renderer);
 
