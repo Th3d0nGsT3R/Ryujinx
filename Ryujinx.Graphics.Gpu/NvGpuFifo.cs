@@ -62,13 +62,13 @@ namespace Ryujinx.Graphics.Gpu
             /// </summary>
             /// <param name="mme">Program code</param>
             /// <param name="state">Current GPU state</param>
-            public void Execute(int[] mme, ShadowRamControl shadowCtrl, GpuState state)
+            public void Execute(int[] mme, ShadowRamControl shadowCtrl, GpuState state, GpuState shadowState)
             {
                 if (_executionPending)
                 {
                     _executionPending = false;
 
-                    _interpreter?.Execute(mme, Position, _argument, shadowCtrl, state);
+                    _interpreter?.Execute(mme, Position, _argument, shadowCtrl, state, shadowState);
                 }
             }
 
@@ -102,6 +102,11 @@ namespace Ryujinx.Graphics.Gpu
             public GpuState State { get; }
 
             /// <summary>
+            /// Sub-channel shadow GPU state (used as backup storage to restore MME changes).
+            /// </summary>
+            public GpuState ShadowState { get; }
+
+            /// <summary>
             /// Engine bound to the sub-channel.
             /// </summary>
             public ClassId  Class { get; set; }
@@ -112,6 +117,7 @@ namespace Ryujinx.Graphics.Gpu
             public SubChannel()
             {
                 State = new GpuState();
+                ShadowState = new GpuState();
             }
         }
 
@@ -202,7 +208,11 @@ namespace Ryujinx.Graphics.Gpu
             }
             else if (meth.Method < 0xe00)
             {
-                _subChannels[meth.SubChannel].State.CallMethod(meth, _shadowCtrl);
+                SubChannel sc = _subChannels[meth.SubChannel];
+
+                sc.ShadowState.Write(meth.Method, meth.Argument);
+
+                sc.State.CallMethod(meth);
             }
             else
             {
@@ -219,7 +229,9 @@ namespace Ryujinx.Graphics.Gpu
 
                 if (meth.IsLastCall)
                 {
-                    _macros[macroIndex].Execute(_mme, _shadowCtrl, _subChannels[meth.SubChannel].State);
+                    SubChannel sc = _subChannels[meth.SubChannel];
+
+                    _macros[macroIndex].Execute(_mme, _shadowCtrl, sc.State, sc.ShadowState);
 
                     _context.Methods.PerformDeferredDraws();
                 }
