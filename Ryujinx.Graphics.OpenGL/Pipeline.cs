@@ -26,7 +26,7 @@ namespace Ryujinx.Graphics.OpenGL
         private bool _depthTest;
         private bool _hasDepthBuffer;
 
-        private TextureView _unit0Texture;
+        private TextureBase _unit0Texture;
 
         private ClipOrigin _clipOrigin;
         private ClipDepthMode _clipDepthMode;
@@ -34,6 +34,8 @@ namespace Ryujinx.Graphics.OpenGL
         private uint[] _componentMasks;
 
         private bool _scissor0Enable = false;
+
+        ColorF _blendConstant = new ColorF(0, 0, 0, 0);
 
         internal Pipeline()
         {
@@ -478,11 +480,6 @@ namespace Ryujinx.Graphics.OpenGL
             }
         }
 
-        public void SetBlendColor(ColorF color)
-        {
-            GL.BlendColor(color.Red, color.Green, color.Blue, color.Alpha);
-        }
-
         public void SetBlendState(int index, BlendDescriptor blend)
         {
             if (!blend.Enable)
@@ -503,6 +500,17 @@ namespace Ryujinx.Graphics.OpenGL
                 (BlendingFactorDest)blend.ColorDstFactor.Convert(),
                 (BlendingFactorSrc)blend.AlphaSrcFactor.Convert(),
                 (BlendingFactorDest)blend.AlphaDstFactor.Convert());
+
+            if (_blendConstant != blend.BlendConstant)
+            {
+                _blendConstant = blend.BlendConstant;
+
+                GL.BlendColor(
+                    blend.BlendConstant.Red,
+                    blend.BlendConstant.Green,
+                    blend.BlendConstant.Blue,
+                    blend.BlendConstant.Alpha);
+            }
 
             GL.Enable(IndexedEnableCap.Blend, index);
         }
@@ -541,9 +549,20 @@ namespace Ryujinx.Graphics.OpenGL
                 return;
             }
 
-            GL.PolygonOffset(factor, units);
+            GL.PolygonOffset(factor, units / 2f);
             // TODO: Enable when GL_EXT_polygon_offset_clamp is supported.
             // GL.PolygonOffsetClamp(factor, units, clamp);
+        }
+
+        public void SetDepthClamp(bool clamp)
+        {
+            if (!clamp)
+            {
+                GL.Disable(EnableCap.DepthClamp);
+                return;
+            }
+
+            GL.Enable(EnableCap.DepthClamp);
         }
 
         public void SetDepthMode(DepthMode mode)
@@ -593,13 +612,13 @@ namespace Ryujinx.Graphics.OpenGL
 
             if (unit != -1 && texture != null)
             {
-                TextureView view = (TextureView)texture;
+                TextureBase texBase = (TextureBase)texture;
 
-                FormatInfo formatInfo = FormatTable.GetFormatInfo(view.Format);
+                FormatInfo formatInfo = FormatTable.GetFormatInfo(texBase.Format);
 
                 SizedInternalFormat format = (SizedInternalFormat)formatInfo.PixelInternalFormat;
 
-                GL.BindImageTexture(unit, view.Handle, 0, true, 0, TextureAccess.ReadWrite, format);
+                GL.BindImageTexture(unit, texBase.Handle, 0, true, 0, TextureAccess.ReadWrite, format);
             }
         }
 
@@ -778,11 +797,11 @@ namespace Ryujinx.Graphics.OpenGL
             {
                 if (unit == 0)
                 {
-                    _unit0Texture = ((TextureView)texture);
+                    _unit0Texture = (TextureBase)texture;
                 }
                 else
                 {
-                    ((TextureView)texture).Bind(unit);
+                    ((TextureBase)texture).Bind(unit);
                 }
             }
         }

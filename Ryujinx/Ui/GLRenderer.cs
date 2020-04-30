@@ -192,12 +192,17 @@ namespace Ryujinx.Ui
                 parent.Present();
 
                 string titleNameSection = string.IsNullOrWhiteSpace(_device.System.TitleName) ? string.Empty
-                    : " | " + _device.System.TitleName;
+                    : $" - {_device.System.TitleName}";
+
+                string titleVersionSection = string.IsNullOrWhiteSpace(_device.System.TitleVersionString) ? string.Empty
+                    : $" v{_device.System.TitleVersionString}";
 
                 string titleIdSection = string.IsNullOrWhiteSpace(_device.System.TitleIdText) ? string.Empty
-                    : " | " + _device.System.TitleIdText.ToUpper();
+                    : $" ({_device.System.TitleIdText.ToUpper()})";
 
-                parent.Title = $"Ryujinx {Program.Version}{titleNameSection}{titleIdSection}";
+                string titleArchSection = _device.System.TitleIs64Bit ? " (64-bit)" : " (32-bit)";
+
+                parent.Title = $"Ryujinx {Program.Version}{titleNameSection}{titleVersionSection}{titleIdSection}{titleArchSection}";
             });
 
             Thread renderLoopThread = new Thread(Render)
@@ -343,10 +348,6 @@ namespace Ryujinx.Ui
                         $"Host: {_device.Statistics.GetSystemFrameRate():00.00} FPS", 
                         $"Game: {_device.Statistics.GetGameFrameRate():00.00} FPS",
                         $"GPU: {_renderer.GpuVendor}"));
-
-                    _device.System.SignalVsync();
-
-                    _device.VsyncEvent.Set();
 
                     _ticks = Math.Min(_ticks - _ticksPerFrame, _ticksPerFrame);
                 }

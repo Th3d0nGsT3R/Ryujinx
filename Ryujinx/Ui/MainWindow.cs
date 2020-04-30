@@ -1,5 +1,4 @@
 using Gtk;
-using JsonPrettyPrinterPlus;
 using LibHac.Common;
 using LibHac.Ns;
 using Ryujinx.Audio;
@@ -12,15 +11,11 @@ using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.FileSystem.Content;
 using Ryujinx.HLE.HOS.Services.Hid;
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Utf8Json;
-using Utf8Json.Resolvers;
 
 using GUI = Gtk.Builder.ObjectAttribute;
 
@@ -42,14 +37,15 @@ namespace Ryujinx.Ui
         private static bool _updatingGameTable;
         private static bool _gameLoaded;
         private static bool _ending;
+#pragma warning disable CS0169
         private static bool _debuggerOpened;
+#pragma warning restore CS0169
 
-        private static TreeView _treeView;
-
+#pragma warning disable CS0169
         private static Ryujinx.Debugger.Debugger _debugger;
+#pragma warning restore CS0169
 
-#pragma warning disable CS0649
-#pragma warning disable IDE0044
+#pragma warning disable CS0169, CS0649, IDE0044
 
         [GUI] Window         _mainWin;
         [GUI] MenuBar        _menuBar;
@@ -83,8 +79,7 @@ namespace Ryujinx.Ui
         [GUI] Label          _vSyncStatus;
         [GUI] Box            _listStatusBox;
 
-#pragma warning restore CS0649
-#pragma warning restore IDE0044
+#pragma warning restore CS0649, IDE0044, CS0169
 
         public MainWindow() : this(new Builder("Ryujinx.Ui.MainWindow.glade")) { }
 
@@ -130,8 +125,6 @@ namespace Ryujinx.Ui
             // Make sure that everything is loaded.
             _virtualFileSystem.Reload();
 
-            _treeView = _gameTable;
-
             ApplyTheme();
 
             _mainWin.Icon            = new Gdk.Pixbuf(Assembly.GetExecutingAssembly(), "Ryujinx.Ui.assets.Icon.png");
@@ -173,6 +166,9 @@ namespace Ryujinx.Ui
             _tableStore.SetSortFunc(6, LastPlayedSort);
             _tableStore.SetSortFunc(8, FileSizeSort);
             _tableStore.SetSortColumnId(0, SortType.Descending);
+
+            _gameTable.EnableSearch = true;
+            _gameTable.SearchColumn = 2;
 
             UpdateColumns();
             UpdateGameTable();
