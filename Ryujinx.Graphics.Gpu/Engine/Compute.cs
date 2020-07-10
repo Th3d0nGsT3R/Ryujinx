@@ -4,7 +4,6 @@ using Ryujinx.Graphics.Gpu.Shader;
 using Ryujinx.Graphics.Gpu.State;
 using Ryujinx.Graphics.Shader;
 using System;
-using System.Runtime.InteropServices;
 
 namespace Ryujinx.Graphics.Gpu.Engine
 {
@@ -47,7 +46,7 @@ namespace Ryujinx.Graphics.Gpu.Engine
                 BufferManager.SetComputeUniformBuffer(index, gpuVa, size);
             }
 
-            ComputeShader cs = ShaderCache.GetComputeShader(
+            ShaderBundle cs = ShaderCache.GetComputeShader(
                 state,
                 shaderGpuVa,
                 qmd.CtaThreadDimension0,
@@ -68,7 +67,7 @@ namespace Ryujinx.Graphics.Gpu.Engine
 
             TextureManager.SetComputeTextureBufferIndex(state.Get<int>(MethodOffset.TextureBufferIndex));
 
-            ShaderProgramInfo info = cs.Shader.Program.Info;            
+            ShaderProgramInfo info = cs.Shaders[0].Program.Info;            
 
             for (int index = 0; index < info.CBuffers.Count; index++)
             {
@@ -87,13 +86,11 @@ namespace Ryujinx.Graphics.Gpu.Engine
 
                 ulong cbDescAddress = BufferManager.GetComputeUniformBufferAddress(0);
 
-                int cbDescOffset = 0x260 + cb.Slot * 0x10;
+                int cbDescOffset = 0x260 + (cb.Slot - 8) * 0x10;
 
                 cbDescAddress += (ulong)cbDescOffset;
 
-                ReadOnlySpan<byte> cbDescriptorData = _context.PhysicalMemory.GetSpan(cbDescAddress, 0x10);
-
-                SbDescriptor cbDescriptor = MemoryMarshal.Cast<byte, SbDescriptor>(cbDescriptorData)[0];
+                SbDescriptor cbDescriptor = _context.PhysicalMemory.Read<SbDescriptor>(cbDescAddress);
 
                 BufferManager.SetComputeUniformBuffer(cb.Slot, cbDescriptor.PackAddress(), (uint)cbDescriptor.Size);
             }
@@ -110,9 +107,7 @@ namespace Ryujinx.Graphics.Gpu.Engine
 
                 sbDescAddress += (ulong)sbDescOffset;
 
-                ReadOnlySpan<byte> sbDescriptorData = _context.PhysicalMemory.GetSpan(sbDescAddress, 0x10);
-
-                SbDescriptor sbDescriptor = MemoryMarshal.Cast<byte, SbDescriptor>(sbDescriptorData)[0];
+                SbDescriptor sbDescriptor = _context.PhysicalMemory.Read<SbDescriptor>(sbDescAddress);
 
                 BufferManager.SetComputeStorageBuffer(sb.Slot, sbDescriptor.PackAddress(), (uint)sbDescriptor.Size);
             }
@@ -137,11 +132,11 @@ namespace Ryujinx.Graphics.Gpu.Engine
 
                 if (descriptor.IsBindless)
                 {
-                    textureBindings[index] = new TextureBindingInfo(target, descriptor.CbufOffset, descriptor.CbufSlot);
+                    textureBindings[index] = new TextureBindingInfo(target, descriptor.CbufOffset, descriptor.CbufSlot, descriptor.Flags);
                 }
                 else
                 {
-                    textureBindings[index] = new TextureBindingInfo(target, descriptor.HandleIndex);
+                    textureBindings[index] = new TextureBindingInfo(target, descriptor.HandleIndex, descriptor.Flags);
                 }
             }
 
@@ -155,7 +150,7 @@ namespace Ryujinx.Graphics.Gpu.Engine
 
                 Target target = GetTarget(descriptor.Type);
 
-                imageBindings[index] = new TextureBindingInfo(target, descriptor.HandleIndex);
+                imageBindings[index] = new TextureBindingInfo(target, descriptor.HandleIndex, descriptor.Flags);
             }
 
             TextureManager.SetComputeImages(imageBindings);
@@ -168,7 +163,7 @@ namespace Ryujinx.Graphics.Gpu.Engine
                 qmd.CtaRasterHeight,
                 qmd.CtaRasterDepth);
 
-            UpdateShaderState(state);
+            _forceShaderUpdate = true;
         }
     }
 }

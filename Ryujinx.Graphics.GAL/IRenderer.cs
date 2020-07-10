@@ -11,19 +11,27 @@ namespace Ryujinx.Graphics.GAL
 
         IShader CompileShader(ShaderProgram shader);
 
-        IBuffer CreateBuffer(int size);
+        BufferHandle CreateBuffer(int size);
 
         IProgram CreateProgram(IShader[] shaders);
 
         ISampler CreateSampler(SamplerCreateInfo info);
-        ITexture CreateTexture(TextureCreateInfo info);
+        ITexture CreateTexture(TextureCreateInfo info, float scale);
+
+        void DeleteBuffer(BufferHandle buffer);
+
+        byte[] GetBufferData(BufferHandle buffer, int offset, int size);
 
         Capabilities GetCapabilities();
 
-        ulong GetCounter(CounterType type);
+        void SetBufferData(BufferHandle buffer, int offset, ReadOnlySpan<byte> data);
 
-        void Initialize();
+        void UpdateCounters();
+
+        ICounterEvent ReportCounter(CounterType type, EventHandler<ulong> resultHandler);
 
         void ResetCounter(CounterType type);
+
+        void Initialize();
     }
 }

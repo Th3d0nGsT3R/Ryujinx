@@ -72,6 +72,20 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             public uint                  Height;
             public NativeWindowTransform TransformHint;
             public uint                  NumPendingBuffers;
+            public ulong                 FrameNumber;
+
+            public void WriteToParcel(Parcel parcel)
+            {
+                parcel.WriteUInt32(Width);
+                parcel.WriteUInt32(Height);
+                parcel.WriteUnmanagedType(ref TransformHint);
+                parcel.WriteUInt32(NumPendingBuffers);
+
+                if (TransformHint.HasFlag(NativeWindowTransform.ReturnFrameNumber))
+                {
+                    parcel.WriteUInt64(FrameNumber);
+                }
+            }
         }
 
         public ResultCode AdjustRefcount(int addVal, int type)
@@ -174,7 +188,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                     status = QueueBuffer(slot, ref queueInput, out queueOutput);
 
-                    outputParcel.WriteUnmanagedType(ref queueOutput);
+                    queueOutput.WriteToParcel(outputParcel);
 
                     outputParcel.WriteStatus(status);
 
@@ -214,7 +228,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                     status = Connect(listener, api, producerControlledByApp, out queueOutput);
 
-                    outputParcel.WriteUnmanagedType(ref queueOutput);
+                    queueOutput.WriteToParcel(outputParcel);
 
                     outputParcel.WriteStatus(status);
 
@@ -235,6 +249,18 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                     status = SetPreallocatedBuffer(slot, graphicBuffer);
 
                     outputParcel.WriteStatus(status);
+
+                    break;
+                case TransactionCode.GetBufferHistory:
+                    int bufferHistoryCount = inputParcel.ReadInt32();
+
+                    status = GetBufferHistory(bufferHistoryCount, out Span<BufferInfo> bufferInfos);
+
+                    outputParcel.WriteStatus(status);
+
+                    outputParcel.WriteInt32(bufferInfos.Length);
+
+                    outputParcel.WriteUnmanagedSpan<BufferInfo>(bufferInfos);
 
                     break;
                 default:
@@ -272,5 +298,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         public abstract Status Disconnect(NativeWindowApi api);
 
         public abstract Status SetPreallocatedBuffer(int slot, AndroidStrongPointer<GraphicBuffer> graphicBuffer);
+
+        public abstract Status GetBufferHistory(int bufferHistoryCount, out Span<BufferInfo> bufferInfos);
     }
 }

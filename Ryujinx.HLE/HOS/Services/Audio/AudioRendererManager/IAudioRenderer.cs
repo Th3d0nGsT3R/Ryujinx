@@ -1,7 +1,7 @@
-using ARMeilleure.Memory;
 using Ryujinx.Audio;
 using Ryujinx.Audio.Adpcm;
 using Ryujinx.Common.Logging;
+using Ryujinx.Cpu;
 using Ryujinx.HLE.HOS.Ipc;
 using Ryujinx.HLE.HOS.Kernel.Common;
 using Ryujinx.HLE.HOS.Kernel.Threading;
@@ -48,7 +48,7 @@ namespace Ryujinx.HLE.HOS.Services.Audio.AudioRendererManager
             IAalOutput             audioOut,
             AudioRendererParameter rendererParams)
         {
-            _updateEvent = new KEvent(system);
+            _updateEvent = new KEvent(system.KernelContext);
 
             _memory   = memory;
             _audioOut = audioOut;
@@ -333,7 +333,7 @@ namespace Ryujinx.HLE.HOS.Services.Audio.AudioRendererManager
 
             for (int offset = 0; offset < size; offset += 2)
             {
-                context.Coefficients[offset >> 1] = _memory.ReadInt16(position + offset);
+                context.Coefficients[offset >> 1] = _memory.Read<short>((ulong)(position + offset));
             }
 
             return context;

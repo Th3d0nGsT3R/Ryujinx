@@ -1,6 +1,6 @@
-using ARMeilleure.Memory;
 using Ryujinx.Common;
 using Ryujinx.Common.Logging;
+using Ryujinx.Cpu;
 using Ryujinx.HLE.HOS.Services.Arp;
 using System.Collections.Generic;
 
@@ -75,8 +75,8 @@ namespace Ryujinx.HLE.HOS.Services.Account.Acc
                     break;
                 }
 
-                context.Memory.WriteInt64(outputPosition + (long)offset,     userProfile.UserId.High);
-                context.Memory.WriteInt64(outputPosition + (long)offset + 8, userProfile.UserId.Low);
+                context.Memory.Write((ulong)outputPosition + offset,     userProfile.UserId.High);
+                context.Memory.Write((ulong)outputPosition + offset + 8, userProfile.UserId.Low);
 
                 offset += 0x10;
             }
@@ -240,7 +240,9 @@ namespace Ryujinx.HLE.HOS.Services.Account.Acc
                 return ResultCode.InvalidInputBufferSize;
             }
 
-            byte[] thumbnailBuffer = context.Memory.ReadBytes(inputPosition, inputSize);
+            byte[] thumbnailBuffer = new byte[inputSize];
+
+            context.Memory.Read((ulong)inputPosition, thumbnailBuffer);
 
             // TODO: Store thumbnailBuffer somewhere, in save data 0x8000000000000010 ?
 
@@ -287,7 +289,7 @@ namespace Ryujinx.HLE.HOS.Services.Account.Acc
             // Account actually calls nn::arp::detail::IReader::GetApplicationControlProperty() with the current PID and store the result (NACP File) internally.
             // But since we use LibHac and we load one Application at a time, it's not necessary.
 
-            context.ResponseData.Write(context.Device.System.ControlData.Value.UserAccountSwitchLock);
+            context.ResponseData.Write(context.Device.Application.ControlData.Value.UserAccountSwitchLock);
 
             Logger.PrintStub(LogClass.ServiceAcc);
 

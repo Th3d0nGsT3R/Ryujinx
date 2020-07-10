@@ -1,7 +1,9 @@
 using LibHac;
+using LibHac.Common;
 using LibHac.Fs;
 using LibHac.FsService;
 using LibHac.FsSystem;
+using LibHac.Spl;
 using Ryujinx.HLE.FileSystem.Content;
 using Ryujinx.HLE.HOS;
 using System;
@@ -15,11 +17,12 @@ namespace Ryujinx.HLE.FileSystem
         public const string NandPath   = "bis";
         public const string SdCardPath = "sdcard";
         public const string SystemPath = "system";
+        public const string ModsPath   = "mods";
 
         public static string SafeNandPath   = Path.Combine(NandPath, "safe");
         public static string SystemNandPath = Path.Combine(NandPath, "system");
         public static string UserNandPath   = Path.Combine(NandPath, "user");
-
+        
         private static bool _isInitialized = false;
 
         public Keyset           KeySet   { get; private set; }
@@ -28,9 +31,12 @@ namespace Ryujinx.HLE.FileSystem
         public EmulatedGameCard GameCard { get; private set; }
         public EmulatedSdCard   SdCard   { get; private set; }
 
+        public ModLoader ModLoader {get; private set;}
+
         private VirtualFileSystem()
         {
             Reload();
+            ModLoader = new ModLoader(); // Should only be created once
         }
 
         public Stream RomFs { get; private set; }
@@ -69,6 +75,14 @@ namespace Ryujinx.HLE.FileSystem
             }
 
             return fullPath;
+        }
+
+        public string GetBaseModsPath()
+        {
+            var baseModsDir = Path.Combine(GetBasePath(), "mods");
+            ModLoader.EnsureBaseDirStructure(baseModsDir);
+
+            return baseModsDir;
         }
 
         public string GetSdCardPath() => MakeFullPath(SdCardPath);
@@ -261,6 +275,21 @@ namespace Ryujinx.HLE.FileSystem
             KeySet = ExternalKeyReader.ReadKeyFile(keyFile, titleKeyFile, consoleKeyFile);
         }
 
+        public void ImportTickets(IFileSystem fs)
+        {
+            foreach (DirectoryEntryEx ticketEntry in fs.EnumerateEntries("/", "*.tik"))
+            {
+                Result result = fs.OpenFile(out IFile ticketFile, ticketEntry.FullPath.ToU8Span(), OpenMode.Read);
+
+                if (result.IsSuccess())
+                {
+                    Ticket ticket = new Ticket(ticketFile.AsStream());
+
+                    KeySet.ExternalKeySet.Add(new RightsId(ticket.RightsId), new AccessKey(ticket.GetTitleKey(KeySet)));
+                }
+            }
+        }
+
         public void Unload()
         {
             RomFs?.Dispose();
@@ -283,7 +312,7 @@ namespace Ryujinx.HLE.FileSystem
         {
             if (_isInitialized)
             {
-                throw new InvalidOperationException($"VirtualFileSystem can only be instanciated once!");
+                throw new InvalidOperationException($"VirtualFileSystem can only be instantiated once!");
             }
 
             _isInitialized = true;

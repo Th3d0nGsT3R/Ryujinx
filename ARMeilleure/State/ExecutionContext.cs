@@ -1,3 +1,4 @@
+using ARMeilleure.Memory;
 using System;
 using System.Diagnostics;
 
@@ -30,6 +31,12 @@ namespace ARMeilleure.State
                 return (ulong)(ticks * CntfrqEl0);
             }
         }
+
+        // CNTVCT_EL0 = CNTPCT_EL0 - CNTVOFF_EL2
+        // Since EL2 isn't implemented, CNTVOFF_EL2 = 0
+        public ulong CntvctEl0 => CntpctEl0;
+
+        public static TimeSpan ElapsedTime => _tickCounter.Elapsed;
 
         public long TpidrEl0 { get; set; }
         public long Tpidr    { get; set; }
@@ -73,9 +80,9 @@ namespace ARMeilleure.State
             _tickCounter.Start();
         }
 
-        public ExecutionContext()
+        public ExecutionContext(IJitMemoryAllocator allocator)
         {
-            _nativeContext = new NativeContext();
+            _nativeContext = new NativeContext(allocator);
 
             Running = true;
 

@@ -2,6 +2,7 @@ using ARMeilleure.CodeGen;
 using ARMeilleure.Memory;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 
 namespace ARMeilleure.Translation
@@ -11,36 +12,39 @@ namespace ARMeilleure.Translation
         private const int PageSize = 4 * 1024;
         private const int PageMask = PageSize - 1;
 
-        private const int CodeAlignment = 4; // Bytes
-
+        private const int CodeAlignment = 4; // Bytes.
         private const int CacheSize = 2047 * 1024 * 1024;
 
         private static ReservedRegion _jitRegion;
-
-        private static IntPtr _basePointer => _jitRegion.Pointer;
-
         private static int _offset;
 
-        private static List<JitCacheEntry> _cacheEntries;
+        private static readonly List<JitCacheEntry> _cacheEntries = new List<JitCacheEntry>();
 
-        private static object _lock;
+        private static readonly object _lock = new object();
+        private static bool _initialized;
 
-        static JitCache()
+        public static void Initialize(IJitMemoryAllocator allocator)
         {
-            _jitRegion = new ReservedRegion(CacheSize);
+            if (_initialized) return;
 
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            lock (_lock)
             {
-                _jitRegion.ExpandIfNeeded(PageSize);
-                JitUnwindWindows.InstallFunctionTableHandler(_basePointer, CacheSize);
+                if (_initialized) return;
 
-                // The first page is used for the table based SEH structs.
-                _offset = PageSize;
+                _jitRegion = new ReservedRegion(allocator, CacheSize);
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    _jitRegion.ExpandIfNeeded((ulong)PageSize);
+
+                    JitUnwindWindows.InstallFunctionTableHandler(_jitRegion.Pointer, CacheSize);
+
+                    // The first page is used for the table based SEH structs.
+                    _offset = PageSize;
+                }
+
+                _initialized = true;
             }
-
-            _cacheEntries = new List<JitCacheEntry>();
-
-            _lock = new object();
         }
 
         public static IntPtr Map(CompiledFunction func)
@@ -49,9 +53,11 @@ namespace ARMeilleure.Translation
 
             lock (_lock)
             {
+                Debug.Assert(_initialized);
+
                 int funcOffset = Allocate(code.Length);
 
-                IntPtr funcPtr = _basePointer + funcOffset;
+                IntPtr funcPtr = _jitRegion.Pointer + funcOffset;
 
                 Marshal.Copy(code, 0, funcPtr, code.Length);
 
@@ -77,18 +83,14 @@ namespace ARMeilleure.Translation
 
             if (fullPagesSize != 0)
             {
-                IntPtr funcPtr = _basePointer + pageStart;
-
-                MemoryManagement.Reprotect(funcPtr, (ulong)fullPagesSize, MemoryProtection.ReadAndExecute);
+                _jitRegion.Block.MapAsRx((ulong)pageStart, (ulong)fullPagesSize);
             }
 
             int remaining = endOffs - pageEnd;
 
             if (remaining != 0)
             {
-                IntPtr funcPtr = _basePointer + pageEnd;
-
-                MemoryManagement.Reprotect(funcPtr, (ulong)remaining, MemoryProtection.ReadWriteExecute);
+                _jitRegion.Block.MapAsRwx((ulong)pageEnd, (ulong)remaining);
             }
         }
 
@@ -100,12 +102,12 @@ namespace ARMeilleure.Translation
 
             _offset += codeSize;
 
-            _jitRegion.ExpandIfNeeded((ulong)_offset);
-
-            if ((ulong)(uint)_offset > CacheSize)
+            if (_offset > CacheSize)
             {
-                throw new OutOfMemoryException();
+                throw new OutOfMemoryException("JIT Cache exhausted.");
             }
+
+            _jitRegion.ExpandIfNeeded((ulong)_offset);
 
             return allocOffset;
         }
@@ -132,7 +134,7 @@ namespace ARMeilleure.Translation
                 }
             }
 
-            entry = default(JitCacheEntry);
+            entry = default;
 
             return false;
         }

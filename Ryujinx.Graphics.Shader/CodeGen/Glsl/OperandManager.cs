@@ -185,8 +185,8 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
                     {
                         switch (value & ~3)
                         {
-                            case AttributeConsts.PositionX: return "gl_FragCoord.x";
-                            case AttributeConsts.PositionY: return "gl_FragCoord.y";
+                            case AttributeConsts.PositionX: return "(gl_FragCoord.x / fp_renderScale[0])";
+                            case AttributeConsts.PositionY: return "(gl_FragCoord.y / fp_renderScale[0])";
                             case AttributeConsts.PositionZ: return "gl_FragCoord.z";
                             case AttributeConsts.PositionW: return "gl_FragCoord.w";
                         }
@@ -229,7 +229,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
             }
             else
             {
-                suffix = texOp.Handle.ToString();
+                suffix = texOp.Handle.ToString("X");
 
                 if ((texOp.Type & SamplerType.Indexed) != 0)
                 {
@@ -242,7 +242,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
 
         public static string GetImageName(ShaderStage stage, AstTextureOperation texOp, string indexExpr)
         {
-            string suffix = texOp.Handle.ToString();
+            string suffix = texOp.Handle.ToString("X");
 
             if ((texOp.Type & SamplerType.Indexed) != 0)
             {

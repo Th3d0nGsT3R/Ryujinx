@@ -1,6 +1,7 @@
 ﻿using Ryujinx.Common.Logging;
 using Ryujinx.HLE.HOS.Kernel.Process;
 using Ryujinx.HLE.HOS.Kernel.Threading;
+using Ryujinx.HLE.HOS.Services.SurfaceFlinger.Types;
 using System;
 using System.Collections.Generic;
 using System.Threading;
@@ -29,6 +30,10 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         public bool                  ConsumerControlledByApp;
         public uint                  ConsumerUsageBits;
         public List<BufferItem>      Queue;
+        public BufferInfo[]          BufferHistory;
+        public uint                  BufferHistoryPosition;
+        public bool                  EnableExternalEvent;
+        public int                   MaxBufferCountCached;
 
         public readonly object Lock = new object();
 
@@ -36,6 +41,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         private KEvent _frameAvailableEvent;
 
         public KProcess Owner { get; }
+
+        public const int BufferHistoryArraySize = 8;
 
         public BufferQueueCore(Switch device, KProcess process)
         {
@@ -60,10 +67,14 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             // TODO: CreateGraphicBufferAlloc?
 
-            _waitBufferFreeEvent  = new KEvent(device.System);
-            _frameAvailableEvent = new KEvent(device.System);
+            _waitBufferFreeEvent  = new KEvent(device.System.KernelContext);
+            _frameAvailableEvent = new KEvent(device.System.KernelContext);
 
             Owner = process;
+
+            BufferHistory        = new BufferInfo[BufferHistoryArraySize];
+            EnableExternalEvent  = true;
+            MaxBufferCountCached = 0;
         }
 
         public int GetMinUndequeuedBufferCountLocked(bool async)
@@ -86,6 +97,14 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             return GetMinUndequeuedBufferCountLocked(async);
         }
 
+        public void UpdateMaxBufferCountCachedLocked(int slot)
+        {
+            if (MaxBufferCountCached <= slot)
+            {
+                MaxBufferCountCached = slot + 1;
+            }
+        }
+
         public int GetMaxBufferCountLocked(bool async)
         {
             int minMaxBufferCount = GetMinMaxBufferCountLocked(async);
@@ -94,7 +113,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             if (OverrideMaxBufferCount != 0)
             {
-                maxBufferCount = OverrideMaxBufferCount;
+                return OverrideMaxBufferCount;
             }
 
             // Preserve all buffers already in control of the producer and the consumer.
@@ -129,12 +148,18 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         public void SignalWaitBufferFreeEvent()
         {
-            _waitBufferFreeEvent.WritableEvent.Signal();
+            if (EnableExternalEvent)
+            {
+                _waitBufferFreeEvent.WritableEvent.Signal();
+            }
         }
 
         public void SignalFrameAvailableEvent()
         {
-            _frameAvailableEvent.WritableEvent.Signal();
+            if (EnableExternalEvent)
+            {
+                _frameAvailableEvent.WritableEvent.Signal();
+            }
         }
 
         // TODO: Find an accurate way to handle a regular condvar here as this will wake up unwanted threads in some edge cases.
@@ -148,12 +173,12 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             Monitor.Wait(Lock);
         }
 
-        public void SignalIsAbandonedEvent()
+        public void SignalIsAllocatingEvent()
         {
             Monitor.PulseAll(Lock);
         }
 
-        public void WaitIsAbandonedEvent()
+        public void WaitIsAllocatingEvent()
         {
             Monitor.Wait(Lock);
         }
@@ -193,14 +218,19 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         public void WaitWhileAllocatingLocked()
         {
-            while (IsAbandoned)
+            while (IsAllocating)
             {
-                WaitIsAbandonedEvent();
+                WaitIsAllocatingEvent();
             }
         }
 
         public void CheckSystemEventsLocked(int maxBufferCount)
         {
+            if (!EnableExternalEvent)
+            {
+                return;
+            }
+
             bool needBufferReleaseSignal  = false;
             bool needFrameAvailableSignal = false;
 

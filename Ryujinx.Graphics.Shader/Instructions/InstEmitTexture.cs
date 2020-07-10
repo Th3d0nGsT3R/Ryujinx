@@ -19,7 +19,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             if (type == SamplerType.None)
             {
-                context.Config.PrintLog("Invalid image store sampler type.");
+                context.Config.GpuAccessor.Log("Invalid image store sampler type.");
 
                 return;
             }
@@ -99,7 +99,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
                     if (!op.IsBindless)
                     {
-                        operation.Format = GetTextureFormat(context, handle);
+                        operation.Format = context.Config.GetTextureFormat(handle);
                     }
 
                     context.Add(operation);
@@ -158,7 +158,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             if (type == SamplerType.None)
             {
-                context.Config.PrintLog("Invalid image store sampler type.");
+                context.Config.GpuAccessor.Log("Invalid image store sampler type.");
 
                 return;
             }
@@ -228,7 +228,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
                 if (!op.IsBindless)
                 {
-                    format = GetTextureFormat(context, op.Immediate);
+                    format = context.Config.GetTextureFormat(op.Immediate);
                 }
             }
             else
@@ -283,11 +283,15 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
         public static void Tld(EmitterContext context)
         {
+            context.UsedFeatures |= FeatureFlags.IntegerSampling;
+
             EmitTextureSample(context, TextureFlags.IntCoords);
         }
 
         public static void TldB(EmitterContext context)
         {
+            context.UsedFeatures |= FeatureFlags.IntegerSampling;
+
             EmitTextureSample(context, TextureFlags.IntCoords | TextureFlags.Bindless);
         }
 
@@ -344,7 +348,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
                 if (type == SamplerType.None)
                 {
-                    context.Config.PrintLog("Invalid texture sampler type.");
+                    context.Config.GpuAccessor.Log("Invalid texture sampler type.");
 
                     return;
                 }
@@ -423,14 +427,16 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
                 if (type == SamplerType.None)
                 {
-                    context.Config.PrintLog("Invalid texel fetch sampler type.");
+                    context.Config.GpuAccessor.Log("Invalid texel fetch sampler type.");
 
                     return;
                 }
 
+                context.UsedFeatures |= FeatureFlags.IntegerSampling;
+
                 flags = ConvertTextureFlags(tldsOp.Target) | TextureFlags.IntCoords;
 
-                if (tldsOp.Target == TexelLoadTarget.Texture1DLodZero && context.Config.QueryInfoBool(QueryInfoName.IsTextureBuffer, tldsOp.Immediate))
+                if (tldsOp.Target == TexelLoadTarget.Texture1DLodZero && context.Config.GpuAccessor.QueryIsTextureBuffer(tldsOp.Immediate))
                 {
                     type   = SamplerType.TextureBuffer;
                     flags &= ~TextureFlags.LodLevel;
@@ -716,6 +722,130 @@ namespace Ryujinx.Graphics.Shader.Instructions
             }
         }
 
+        public static void TmmlB(EmitterContext context)
+        {
+            EmitTextureMipMapLevel(context, true);
+        }
+
+        public static void Tmml(EmitterContext context)
+        {
+            EmitTextureMipMapLevel(context, false);
+        }
+
+        private static void EmitTextureMipMapLevel(EmitterContext context, bool isBindless)
+        {
+            OpCodeTexture op = (OpCodeTexture)context.CurrOp;
+
+            if (op.Rd.IsRZ)
+            {
+                return;
+            }
+
+            int raIndex = op.Ra.Index;
+            int rbIndex = op.Rb.Index;
+
+            Operand Ra()
+            {
+                if (raIndex > RegisterConsts.RegisterZeroIndex)
+                {
+                    return Const(0);
+                }
+
+                return context.Copy(Register(raIndex++, RegisterType.Gpr));
+            }
+
+            Operand Rb()
+            {
+                if (rbIndex > RegisterConsts.RegisterZeroIndex)
+                {
+                    return Const(0);
+                }
+
+                return context.Copy(Register(rbIndex++, RegisterType.Gpr));
+            }
+
+            TextureFlags flags = TextureFlags.None;
+
+            List<Operand> sourcesList = new List<Operand>();
+
+            if (isBindless)
+            {
+                sourcesList.Add(Rb());
+
+                flags |= TextureFlags.Bindless;
+            }
+
+            SamplerType type = ConvertSamplerType(op.Dimensions);
+
+            int coordsCount = type.GetDimensions();
+
+            Operand arrayIndex = op.IsArray ? Ra() : null;
+
+            for (int index = 0; index < coordsCount; index++)
+            {
+                sourcesList.Add(Ra());
+            }
+
+            if (op.IsArray)
+            {
+                sourcesList.Add(arrayIndex);
+
+                type |= SamplerType.Array;
+            }
+
+            Operand[] sources = sourcesList.ToArray();
+
+            int rdIndex = op.Rd.Index;
+
+            Operand GetDest()
+            {
+                if (rdIndex > RegisterConsts.RegisterZeroIndex)
+                {
+                    return Const(0);
+                }
+
+                return Register(rdIndex++, RegisterType.Gpr);
+            }
+
+            int handle = !isBindless ? op.Immediate : 0;
+
+            for (int compMask = op.ComponentMask, compIndex = 0; compMask != 0; compMask >>= 1, compIndex++)
+            {
+                if ((compMask & 1) != 0)
+                {
+                    Operand dest = GetDest();
+
+                    // Components z and w aren't standard, we return 0 in this case and add a comment.
+                    if (compIndex >= 2)
+                    {
+                        context.Add(new CommentNode("Unsupported component z or w found"));
+                        context.Copy(dest, Const(0));
+                    }
+                    else
+                    {
+                        Operand tempDest = Local();
+
+                        TextureOperation operation = new TextureOperation(
+                            Instruction.Lod,
+                            type,
+                            flags,
+                            handle,
+                            compIndex,
+                            tempDest,
+                            sources);
+
+                        context.Add(operation);
+
+                        tempDest = context.FPMultiply(tempDest, ConstF(256.0f));
+
+                        Operand finalValue = context.FPConvertToS32(tempDest);
+
+                        context.Copy(dest, finalValue);
+                    }
+                }
+            }
+        }
+
         public static void Txd(EmitterContext context)
         {
             OpCodeTxd op = (OpCodeTxd)context.CurrOp;
@@ -755,6 +885,8 @@ namespace Ryujinx.Graphics.Shader.Instructions
             if (op.IsBindless)
             {
                 sourcesList.Add(Ra());
+
+                flags |= TextureFlags.Bindless;
             }
 
             SamplerType type = ConvertSamplerType(op.Dimensions);
@@ -957,6 +1089,24 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             SamplerType type = ConvertSamplerType(op.Dimensions);
 
+            bool hasLod = op.LodMode > TextureLodMode.LodZero;
+
+            if (type == SamplerType.Texture1D && (flags & ~TextureFlags.Bindless) == TextureFlags.IntCoords && !(hasLod ||
+                op.HasDepthCompare ||
+                op.HasOffset ||
+                op.IsArray ||
+                op.IsMultisample))
+            {
+                // For bindless, we don't have any way to know the texture type,
+                // so we assume it's texture buffer when the sampler type is 1D, since that's more common.
+                bool isTypeBuffer = isBindless || context.Config.GpuAccessor.QueryIsTextureBuffer(op.Immediate);
+
+                if (isTypeBuffer)
+                {
+                    type = SamplerType.TextureBuffer;
+                }
+            }
+
             int coordsCount = type.GetDimensions();
 
             for (int index = 0; index < coordsCount; index++)
@@ -971,8 +1121,6 @@ namespace Ryujinx.Graphics.Shader.Instructions
                 type |= SamplerType.Array;
             }
 
-            bool hasLod = op.LodMode > TextureLodMode.LodZero;
-
             Operand lodValue = hasLod ? Rb() : ConstF(0);
 
             Operand packedOffs = op.HasOffset ? Rb() : null;
@@ -986,7 +1134,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             if ((op.LodMode == TextureLodMode.LodZero  ||
                  op.LodMode == TextureLodMode.LodLevel ||
-                 op.LodMode == TextureLodMode.LodLevelA) && !op.IsMultisample)
+                 op.LodMode == TextureLodMode.LodLevelA) && !op.IsMultisample && type != SamplerType.TextureBuffer)
             {
                 sourcesList.Add(lodValue);
 
@@ -1016,16 +1164,6 @@ namespace Ryujinx.Graphics.Shader.Instructions
                 sourcesList.Add(Rb());
 
                 type |= SamplerType.Multisample;
-            }
-
-            if (type == SamplerType.Texture1D && flags == TextureFlags.IntCoords && !isBindless)
-            {
-                bool isTypeBuffer = context.Config.QueryInfoBool(QueryInfoName.IsTextureBuffer, op.Immediate);
-
-                if (isTypeBuffer)
-                {
-                    type = SamplerType.TextureBuffer;
-                }
             }
 
             Operand[] sources = sourcesList.ToArray();
@@ -1089,20 +1227,6 @@ namespace Ryujinx.Graphics.Shader.Instructions
                 IntegerSize.UB128 => 4,
                 _                 => 2
             };
-        }
-
-        private static TextureFormat GetTextureFormat(EmitterContext context, int handle)
-        {
-            var format = (TextureFormat)context.Config.QueryInfo(QueryInfoName.TextureFormat, handle);
-
-            if (format == TextureFormat.Unknown)
-            {
-                context.Config.PrintLog($"Unknown format for texture {handle}.");
-
-                format = TextureFormat.R8G8B8A8Unorm;
-            }
-
-            return format;
         }
 
         private static TextureFormat GetTextureFormat(IntegerSize size)

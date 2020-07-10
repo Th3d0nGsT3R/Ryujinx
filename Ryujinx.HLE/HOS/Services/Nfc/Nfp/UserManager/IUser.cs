@@ -31,7 +31,9 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
             long inputPosition = context.Request.SendBuff[0].Position;
             long inputSize     = context.Request.SendBuff[0].Size;
 
-            byte[] unknownBuffer = context.Memory.ReadBytes(inputPosition, inputSize);
+            byte[] unknownBuffer = new byte[inputSize];
+
+            context.Memory.Read((ulong)inputPosition, unknownBuffer);
 
             // NOTE: appletResourceUserId, mcuVersionData and the buffer are stored inside an internal struct.
             //       The buffer seems to contains entries with a size of 0x40 bytes each.
@@ -89,7 +91,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
 
             for (int i = 0; i < _devices.Count; i++)
             {
-                context.Memory.WriteUInt32(outputPosition + (i * sizeof(long)), (uint)_devices[i].Handle);
+                context.Memory.Write((ulong)(outputPosition + (i * sizeof(long))), (uint)_devices[i].Handle);
             }
 
             context.ResponseData.Write(_devices.Count);
@@ -207,7 +209,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
                 {
                     if (_devices[i].ActivateEventHandle == 0)
                     {
-                        _devices[i].ActivateEvent = new KEvent(context.Device.System);
+                        _devices[i].ActivateEvent = new KEvent(context.Device.System.KernelContext);
 
                         if (context.Process.HandleTable.GenerateHandle(_devices[i].ActivateEvent.ReadableEvent, out _devices[i].ActivateEventHandle) != KernelResult.Success)
                         {
@@ -236,7 +238,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
                 {
                     if (_devices[i].DeactivateEventHandle == 0)
                     {
-                        _devices[i].DeactivateEvent = new KEvent(context.Device.System);
+                        _devices[i].DeactivateEvent = new KEvent(context.Device.System.KernelContext);
 
                         if (context.Process.HandleTable.GenerateHandle(_devices[i].DeactivateEvent.ReadableEvent, out _devices[i].DeactivateEventHandle) != KernelResult.Success)
                         {
@@ -315,7 +317,7 @@ namespace Ryujinx.HLE.HOS.Services.Nfc.Nfp
         {
             if (_availabilityChangeEventHandle == 0)
             {
-                _availabilityChangeEvent = new KEvent(context.Device.System);
+                _availabilityChangeEvent = new KEvent(context.Device.System.KernelContext);
 
                 if (context.Process.HandleTable.GenerateHandle(_availabilityChangeEvent.ReadableEvent, out _availabilityChangeEventHandle) != KernelResult.Success)
                 {

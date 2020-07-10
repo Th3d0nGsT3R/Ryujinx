@@ -15,7 +15,7 @@ namespace Ryujinx.HLE.HOS.Services.Bcat.ServiceCreator
 
         public IDeliveryCacheProgressService(ServiceCtx context)
         {
-            _event = new KEvent(context.Device.System);
+            _event = new KEvent(context.Device.System.KernelContext);
         }
 
         [Command(0)]
@@ -57,7 +57,7 @@ namespace Ryujinx.HLE.HOS.Services.Bcat.ServiceCreator
             using (BinaryWriter bufferWriter = new BinaryWriter(memory))
             {
                 bufferWriter.WriteStruct(deliveryCacheProgress);
-                context.Memory.WriteBytes(ipcDesc.Position, memory.ToArray());
+                context.Memory.Write((ulong)ipcDesc.Position, memory.ToArray());
             }
         }
     }

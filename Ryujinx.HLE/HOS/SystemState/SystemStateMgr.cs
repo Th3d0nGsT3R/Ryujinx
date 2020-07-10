@@ -35,6 +35,10 @@ namespace Ryujinx.HLE.HOS.SystemState
             "AudioBuiltInSpeakerOutput"
         };
 
+        internal long DesiredKeyboardLayout { get; private set; }
+
+        internal SystemLanguage DesiredSystemLanguage { get; private set; }
+
         internal long DesiredLanguageCode { get; private set; }
 
         internal uint DesiredRegionCode { get; private set; }
@@ -59,11 +63,15 @@ namespace Ryujinx.HLE.HOS.SystemState
 
             Account.AddUser(DefaultUserId, "Player");
             Account.OpenUser(DefaultUserId);
+
+            // TODO: Let user specify.
+            DesiredKeyboardLayout = (long)KeyboardLayout.Default;
         }
 
         public void SetLanguage(SystemLanguage language)
         {
-            DesiredLanguageCode = GetLanguageCode((int)language);
+            DesiredSystemLanguage = language;
+            DesiredLanguageCode = GetLanguageCode((int)DesiredSystemLanguage);
 
             switch (language)
             {
@@ -81,7 +89,7 @@ namespace Ryujinx.HLE.HOS.SystemState
             }
         }
 
-        public void SetRegion(SystemRegion region)
+        public void SetRegion(RegionCode region)
         {
             DesiredRegionCode = (uint)region;
         }

@@ -34,9 +34,9 @@ namespace ARMeilleure.IntermediateRepresentation
             return Operand().With(value);
         }
 
-        public static Operand Const(long value)
+        public static Operand Const(long value, bool relocatable = false, int? index = null)
         {
-            return Operand().With(value);
+            return Operand().With(value, relocatable, index);
         }
 
         public static Operand Const(ulong value)

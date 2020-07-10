@@ -104,6 +104,18 @@ namespace Ryujinx.Graphics.Gpu.Memory
         }
 
         /// <summary>
+        /// Sets a new index buffer that overrides the one set on the call to <see cref="CommitGraphicsBindings"/>.
+        /// </summary>
+        /// <param name="buffer">Buffer to be used as index buffer</param>
+        /// <param name="type">Type of each index buffer element</param>
+        public void SetIndexBuffer(BufferRange buffer, IndexType type)
+        {
+            _context.Renderer.Pipeline.SetIndexBuffer(buffer, type);
+
+            _indexBufferDirty = true;
+        }
+
+        /// <summary>
         /// Sets the memory range with vertex buffer data, to be used for subsequent draw calls.
         /// </summary>
         /// <param name="index">Index of the vertex buffer (up to 16)</param>
@@ -477,7 +489,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
             {
                 _vertexBuffersDirty = false;
 
-                VertexBufferDescriptor[] vertexBuffers = new VertexBufferDescriptor[Constants.TotalVertexBuffers];
+                Span<VertexBufferDescriptor> vertexBuffers = stackalloc VertexBufferDescriptor[Constants.TotalVertexBuffers];
 
                 for (int index = 0; (vbEnableMask >> index) != 0; index++)
                 {
@@ -666,8 +678,9 @@ namespace Ryujinx.Graphics.Gpu.Memory
             int srcOffset = (int)(srcAddress - srcBuffer.Address);
             int dstOffset = (int)(dstAddress - dstBuffer.Address);
 
-            srcBuffer.HostBuffer.CopyTo(
-                dstBuffer.HostBuffer,
+            _context.Renderer.Pipeline.CopyBuffer(
+                srcBuffer.Handle,
+                dstBuffer.Handle,
                 srcOffset,
                 dstOffset,
                 (int)size);

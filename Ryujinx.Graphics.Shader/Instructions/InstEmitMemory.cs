@@ -32,6 +32,8 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
                 Operand src = Attribute(op.AttributeOffset + index * 4);
 
+                context.FlagAttributeRead(src.Value);
+
                 context.Copy(Register(rd), context.LoadAttribute(src, primVertex));
             }
         }
@@ -88,13 +90,15 @@ namespace Ryujinx.Graphics.Shader.Instructions
             }
             else
             {
-                context.Config.PrintLog($"Invalid barrier mode: {op.Mode}.");
+                context.Config.GpuAccessor.Log($"Invalid barrier mode: {op.Mode}.");
             }
         }
 
         public static void Ipa(EmitterContext context)
         {
             OpCodeIpa op = (OpCodeIpa)context.CurrOp;
+
+            context.FlagAttributeRead(op.AttributeOffset);
 
             Operand res = Attribute(op.AttributeOffset);
 
@@ -141,7 +145,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             if (op.Size > IntegerSize.B64)
             {
-                context.Config.PrintLog($"Invalid LDC size: {op.Size}.");
+                context.Config.GpuAccessor.Log($"Invalid LDC size: {op.Size}.");
             }
 
             bool isSmallInt = op.Size < IntegerSize.B32;
@@ -209,7 +213,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             if (!(emit || cut))
             {
-                context.Config.PrintLog("Invalid OUT encoding.");
+                context.Config.GpuAccessor.Log("Invalid OUT encoding.");
             }
 
             if (emit)
@@ -274,7 +278,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
                     }
                     else
                     {
-                        context.Config.PrintLog($"Invalid reduction type: {type}.");
+                        context.Config.GpuAccessor.Log($"Invalid reduction type: {type}.");
                     }
                     break;
                 case AtomicOp.BitwiseAnd:
@@ -284,7 +288,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
                     }
                     else
                     {
-                        context.Config.PrintLog($"Invalid reduction type: {type}.");
+                        context.Config.GpuAccessor.Log($"Invalid reduction type: {type}.");
                     }
                     break;
                 case AtomicOp.BitwiseExclusiveOr:
@@ -294,7 +298,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
                     }
                     else
                     {
-                        context.Config.PrintLog($"Invalid reduction type: {type}.");
+                        context.Config.GpuAccessor.Log($"Invalid reduction type: {type}.");
                     }
                     break;
                 case AtomicOp.BitwiseOr:
@@ -304,7 +308,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
                     }
                     else
                     {
-                        context.Config.PrintLog($"Invalid reduction type: {type}.");
+                        context.Config.GpuAccessor.Log($"Invalid reduction type: {type}.");
                     }
                     break;
                 case AtomicOp.Maximum:
@@ -318,7 +322,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
                     }
                     else
                     {
-                        context.Config.PrintLog($"Invalid reduction type: {type}.");
+                        context.Config.GpuAccessor.Log($"Invalid reduction type: {type}.");
                     }
                     break;
                 case AtomicOp.Minimum:
@@ -332,7 +336,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
                     }
                     else
                     {
-                        context.Config.PrintLog($"Invalid reduction type: {type}.");
+                        context.Config.GpuAccessor.Log($"Invalid reduction type: {type}.");
                     }
                     break;
             }
@@ -346,7 +350,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             if (op.Size > IntegerSize.B128)
             {
-                context.Config.PrintLog($"Invalid load size: {op.Size}.");
+                context.Config.GpuAccessor.Log($"Invalid load size: {op.Size}.");
             }
 
             bool isSmallInt = op.Size < IntegerSize.B32;
@@ -432,7 +436,7 @@ namespace Ryujinx.Graphics.Shader.Instructions
 
             if (op.Size > IntegerSize.B128)
             {
-                context.Config.PrintLog($"Invalid store size: {op.Size}.");
+                context.Config.GpuAccessor.Log($"Invalid store size: {op.Size}.");
             }
 
             bool isSmallInt = op.Size < IntegerSize.B32;

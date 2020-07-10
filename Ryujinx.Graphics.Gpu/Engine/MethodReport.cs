@@ -21,14 +21,13 @@ namespace Ryujinx.Graphics.Gpu.Engine
         /// <param name="argument">Method call argument</param>
         private void Report(GpuState state, int argument)
         {
-            ReportMode mode = (ReportMode)(argument & 3);
-
+            SemaphoreOperation op = (SemaphoreOperation)(argument & 3);
             ReportCounterType type = (ReportCounterType)((argument >> 23) & 0x1f);
 
-            switch (mode)
+            switch (op)
             {
-                case ReportMode.Release: ReleaseSemaphore(state);    break;
-                case ReportMode.Counter: ReportCounter(state, type); break;
+                case SemaphoreOperation.Release: ReleaseSemaphore(state);    break;
+                case SemaphoreOperation.Counter: ReportCounter(state, type); break;
             }
         }
 
@@ -38,7 +37,7 @@ namespace Ryujinx.Graphics.Gpu.Engine
         /// <param name="state">Current GPU state</param>
         private void ReleaseSemaphore(GpuState state)
         {
-            var rs = state.Get<ReportState>(MethodOffset.ReportState);
+            var rs = state.Get<SemaphoreState>(MethodOffset.ReportState);
 
             _context.MemoryAccessor.Write(rs.Address.Pack(), rs.Payload);
 
@@ -64,23 +63,9 @@ namespace Ryujinx.Graphics.Gpu.Engine
         {
             CounterData counterData = new CounterData();
 
-            ulong counter = 0;
+            var rs = state.Get<SemaphoreState>(MethodOffset.ReportState);
 
-            switch (type)
-            {
-                case ReportCounterType.Zero:
-                    counter = 0;
-                    break;
-                case ReportCounterType.SamplesPassed:
-                    counter = _context.Renderer.GetCounter(CounterType.SamplesPassed);
-                    break;
-                case ReportCounterType.PrimitivesGenerated:
-                    counter = _context.Renderer.GetCounter(CounterType.PrimitivesGenerated);
-                    break;
-                case ReportCounterType.TransformFeedbackPrimitivesWritten:
-                    counter = _context.Renderer.GetCounter(CounterType.TransformFeedbackPrimitivesWritten);
-                    break;
-            }
+            ulong gpuVa = rs.Address.Pack();
 
             ulong ticks = ConvertNanosecondsToTicks((ulong)PerformanceCounter.ElapsedNanoseconds);
 
@@ -91,18 +76,40 @@ namespace Ryujinx.Graphics.Gpu.Engine
                 ticks /= 256;
             }
 
-            counterData.Counter   = counter;
-            counterData.Timestamp = ticks;
+            ICounterEvent counter = null;
 
-            Span<CounterData> counterDataSpan = MemoryMarshal.CreateSpan(ref counterData, 1);
+            EventHandler<ulong> resultHandler = (object evt, ulong result) =>
+            {
+                counterData.Counter = result;
+                counterData.Timestamp = ticks;
 
-            Span<byte> data = MemoryMarshal.Cast<CounterData, byte>(counterDataSpan);
+                Span<CounterData> counterDataSpan = MemoryMarshal.CreateSpan(ref counterData, 1);
 
-            var rs = state.Get<ReportState>(MethodOffset.ReportState);
+                Span<byte> data = MemoryMarshal.Cast<CounterData, byte>(counterDataSpan);
 
-            _context.MemoryAccessor.Write(rs.Address.Pack(), data);
+                if (counter?.Invalid != true)
+                {
+                    _context.MemoryAccessor.Write(gpuVa, data);
+                }
+            };
 
-            _counterCache.AddOrUpdate(rs.Address.Pack());
+            switch (type)
+            {
+                case ReportCounterType.Zero:
+                    resultHandler(null, 0);
+                    break;
+                case ReportCounterType.SamplesPassed:
+                    counter = _context.Renderer.ReportCounter(CounterType.SamplesPassed, resultHandler);
+                    break;
+                case ReportCounterType.PrimitivesGenerated:
+                    counter = _context.Renderer.ReportCounter(CounterType.PrimitivesGenerated, resultHandler);
+                    break;
+                case ReportCounterType.TransformFeedbackPrimitivesWritten:
+                    counter = _context.Renderer.ReportCounter(CounterType.TransformFeedbackPrimitivesWritten, resultHandler);
+                    break;
+            }
+
+            _counterCache.AddOrUpdate(gpuVa, counter);
         }
 
         /// <summary>

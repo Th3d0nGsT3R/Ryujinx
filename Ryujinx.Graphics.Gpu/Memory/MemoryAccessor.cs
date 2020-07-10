@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Ryujinx.Graphics.Gpu.Memory
@@ -25,7 +26,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// <param name="gpuVa">GPU virtual address where the data is located</param>
         /// <param name="size">Size of the data in bytes</param>
         /// <returns>Byte array with the data</returns>
-        public byte[] ReadBytes(ulong gpuVa, ulong size)
+        public byte[] ReadBytes(ulong gpuVa, int size)
         {
             return GetSpan(gpuVa, size).ToArray();
         }
@@ -35,30 +36,26 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// This reads as much data as possible, up to the specified maximum size.
         /// </summary>
         /// <param name="gpuVa">GPU virtual address where the data is located</param>
-        /// <param name="maxSize">Maximum size of the data</param>
+        /// <param name="size">Size of the data</param>
         /// <returns>The span of the data at the specified memory location</returns>
-        public ReadOnlySpan<byte> GetSpan(ulong gpuVa, ulong maxSize)
+        public ReadOnlySpan<byte> GetSpan(ulong gpuVa, int size)
         {
             ulong processVa = _context.MemoryManager.Translate(gpuVa);
-
-            ulong size = _context.MemoryManager.GetSubSize(gpuVa, maxSize);
 
             return _context.PhysicalMemory.GetSpan(processVa, size);
         }
 
         /// <summary>
-        /// Reads a structure from GPU mapped memory.
+        /// Reads data from GPU mapped memory.
         /// </summary>
-        /// <typeparam name="T">Type of the structure</typeparam>
-        /// <param name="gpuVa">GPU virtual address where the structure is located</param>
-        /// <returns>The structure at the specified memory location</returns>
-        public T Read<T>(ulong gpuVa) where T : struct
+        /// <typeparam name="T">Type of the data</typeparam>
+        /// <param name="gpuVa">GPU virtual address where the data is located</param>
+        /// <returns>The data at the specified memory location</returns>
+        public T Read<T>(ulong gpuVa) where T : unmanaged
         {
             ulong processVa = _context.MemoryManager.Translate(gpuVa);
 
-            ulong size = (uint)Marshal.SizeOf<T>();
-
-            return MemoryMarshal.Cast<byte, T>(_context.PhysicalMemory.GetSpan(processVa, size))[0];
+            return MemoryMarshal.Cast<byte, T>(_context.PhysicalMemory.GetSpan(processVa, Unsafe.SizeOf<T>()))[0];
         }
 
         /// <summary>
@@ -70,7 +67,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         {
             ulong processVa = _context.MemoryManager.Translate(gpuVa);
 
-            return BitConverter.ToInt32(_context.PhysicalMemory.GetSpan(processVa, 4));
+            return _context.PhysicalMemory.Read<int>(processVa);
         }
 
         /// <summary>
@@ -82,7 +79,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         {
             ulong processVa = _context.MemoryManager.Translate(gpuVa);
 
-            return BitConverter.ToUInt64(_context.PhysicalMemory.GetSpan(processVa, 8));
+            return _context.PhysicalMemory.Read<ulong>(processVa);
         }
 
         /// <summary>
@@ -114,7 +111,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// </summary>
         /// <param name="gpuVa">GPU virtual address to write the data into</param>
         /// <param name="data">The data to be written</param>
-        public void Write(ulong gpuVa, Span<byte> data)
+        public void Write(ulong gpuVa, ReadOnlySpan<byte> data)
         {
             ulong processVa = _context.MemoryManager.Translate(gpuVa);
 

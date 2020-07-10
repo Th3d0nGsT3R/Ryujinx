@@ -5,6 +5,7 @@ using ARMeilleure.Common;
 using ARMeilleure.Diagnostics;
 using ARMeilleure.IntermediateRepresentation;
 using ARMeilleure.Translation;
+using ARMeilleure.Translation.PTC;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -53,7 +54,6 @@ namespace ARMeilleure.CodeGen.X86
             Add(Instruction.ConvertToFP,             GenerateConvertToFP);
             Add(Instruction.Copy,                    GenerateCopy);
             Add(Instruction.CountLeadingZeros,       GenerateCountLeadingZeros);
-            Add(Instruction.CpuId,                   GenerateCpuId);
             Add(Instruction.Divide,                  GenerateDivide);
             Add(Instruction.DivideUI,                GenerateDivideUI);
             Add(Instruction.Fill,                    GenerateFill);
@@ -101,7 +101,7 @@ namespace ARMeilleure.CodeGen.X86
             _instTable[(int)inst] = func;
         }
 
-        public static CompiledFunction Generate(CompilerContext cctx)
+        public static CompiledFunction Generate(CompilerContext cctx, PtcInfo ptcInfo = null)
         {
             ControlFlowGraph cfg = cctx.Cfg;
 
@@ -159,9 +159,11 @@ namespace ARMeilleure.CodeGen.X86
 
             using (MemoryStream stream = new MemoryStream())
             {
-                CodeGenContext context = new CodeGenContext(stream, allocResult, maxCallArgs, cfg.Blocks.Count);
+                CodeGenContext context = new CodeGenContext(stream, allocResult, maxCallArgs, cfg.Blocks.Count, ptcInfo);
 
                 UnwindInfo unwindInfo = WritePrologue(context);
+
+                ptcInfo?.WriteUnwindInfo(unwindInfo);
 
                 for (BasicBlock block = cfg.Blocks.First; block != null; block = block.ListNext)
                 {
@@ -763,11 +765,6 @@ namespace ARMeilleure.CodeGen.X86
             // return the number of 0 bits on the high end. So, we invert the result
             // of the BSR using XOR to get the correct value.
             context.Assembler.Xor(dest, Const(operandMask), OperandType.I32);
-        }
-
-        private static void GenerateCpuId(CodeGenContext context, Operation operation)
-        {
-            context.Assembler.Cpuid();
         }
 
         private static void GenerateDivide(CodeGenContext context, Operation operation)
@@ -1531,30 +1528,27 @@ namespace ARMeilleure.CodeGen.X86
             context.Assembler.Pshufd(dest, dest, 0xfc);
         }
 
+        [Conditional("DEBUG")]
         private static void ValidateUnOp(Operand dest, Operand source)
         {
-#if DEBUG
             EnsureSameReg (dest, source);
             EnsureSameType(dest, source);
-#endif
         }
 
+        [Conditional("DEBUG")]
         private static void ValidateBinOp(Operand dest, Operand src1, Operand src2)
         {
-#if DEBUG
             EnsureSameReg (dest, src1);
             EnsureSameType(dest, src1, src2);
-#endif
         }
 
+        [Conditional("DEBUG")]
         private static void ValidateShift(Operand dest, Operand src1, Operand src2)
         {
-#if DEBUG
             EnsureSameReg (dest, src1);
             EnsureSameType(dest, src1);
 
             Debug.Assert(dest.Type.IsInteger() && src2.Type == OperandType.I32);
-#endif
         }
 
         private static void EnsureSameReg(Operand op1, Operand op2)
@@ -1601,7 +1595,7 @@ namespace ARMeilleure.CodeGen.X86
 
                 context.Assembler.Push(Register((X86Register)bit));
 
-                pushEntries.Add(new UnwindPushEntry(bit, RegisterType.Integer, context.StreamOffset));
+                pushEntries.Add(new UnwindPushEntry(UnwindPseudoOp.PushReg, context.StreamOffset, regIndex: bit));
 
                 mask &= ~(1 << bit);
             }
@@ -1618,6 +1612,8 @@ namespace ARMeilleure.CodeGen.X86
             if (reservedStackSize != 0)
             {
                 context.Assembler.Sub(rsp, Const(reservedStackSize), OperandType.I64);
+
+                pushEntries.Add(new UnwindPushEntry(UnwindPseudoOp.AllocStack, context.StreamOffset, stackOffsetOrAllocSize: reservedStackSize));
             }
 
             int offset = reservedStackSize;
@@ -1634,12 +1630,12 @@ namespace ARMeilleure.CodeGen.X86
 
                 context.Assembler.Movdqu(memOp, Xmm((X86Register)bit));
 
-                pushEntries.Add(new UnwindPushEntry(bit, RegisterType.Vector, context.StreamOffset));
+                pushEntries.Add(new UnwindPushEntry(UnwindPseudoOp.SaveXmm128, context.StreamOffset, bit, offset));
 
                 mask &= ~(1 << bit);
             }
 
-            return new UnwindInfo(pushEntries.ToArray(), context.StreamOffset, reservedStackSize);
+            return new UnwindInfo(pushEntries.ToArray(), context.StreamOffset);
         }
 
         private static void WriteEpilogue(CodeGenContext context)

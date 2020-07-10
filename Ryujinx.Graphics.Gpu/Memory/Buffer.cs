@@ -11,9 +11,9 @@ namespace Ryujinx.Graphics.Gpu.Memory
         private readonly GpuContext _context;
 
         /// <summary>
-        /// Host buffer object.
+        /// Host buffer handle.
         /// </summary>
-        public IBuffer HostBuffer { get; }
+        public BufferHandle Handle { get; }
 
         /// <summary>
         /// Start address of the buffer in guest memory.
@@ -30,7 +30,9 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// </summary>
         public ulong EndAddress => Address + Size;
 
-        private int[] _sequenceNumbers;
+        private readonly (ulong, ulong)[] _modifiedRanges;
+
+        private readonly int[] _sequenceNumbers;
 
         /// <summary>
         /// Creates a new instance of the buffer.
@@ -44,11 +46,11 @@ namespace Ryujinx.Graphics.Gpu.Memory
             Address  = address;
             Size     = size;
 
-            HostBuffer = context.Renderer.CreateBuffer((int)size);
+            Handle = context.Renderer.CreateBuffer((int)size);
+
+            _modifiedRanges = new (ulong, ulong)[size / PhysicalMemory.PageSize];
 
             _sequenceNumbers = new int[size / MemoryManager.PageSize];
-
-            Invalidate();
         }
 
         /// <summary>
@@ -64,7 +66,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         {
             int offset = (int)(address - Address);
 
-            return new BufferRange(HostBuffer, offset, (int)size);
+            return new BufferRange(Handle, offset, (int)size);
         }
 
         /// <summary>
@@ -115,15 +117,15 @@ namespace Ryujinx.Graphics.Gpu.Memory
                 return;
             }
 
-            (ulong, ulong)[] modifiedRanges = _context.PhysicalMemory.GetModifiedRanges(address, size, ResourceName.Buffer);
+            int count = _context.PhysicalMemory.QueryModified(address, size, ResourceName.Buffer, _modifiedRanges);
 
-            for (int index = 0; index < modifiedRanges.Length; index++)
+            for (int index = 0; index < count; index++)
             {
-                (ulong mAddress, ulong mSize) = modifiedRanges[index];
+                (ulong mAddress, ulong mSize) = _modifiedRanges[index];
 
                 int offset = (int)(mAddress - Address);
 
-                HostBuffer.SetData(offset, _context.PhysicalMemory.GetSpan(mAddress, mSize));
+                _context.Renderer.SetBufferData(Handle, offset, _context.PhysicalMemory.GetSpan(mAddress, (int)mSize));
             }
         }
 
@@ -134,7 +136,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// <param name="dstOffset">The offset of the destination buffer to copy into</param>
         public void CopyTo(Buffer destination, int dstOffset)
         {
-            HostBuffer.CopyTo(destination.HostBuffer, 0, dstOffset, (int)Size);
+            _context.Renderer.Pipeline.CopyBuffer(Handle, destination.Handle, 0, dstOffset, (int)Size);
         }
 
         /// <summary>
@@ -147,17 +149,9 @@ namespace Ryujinx.Graphics.Gpu.Memory
         {
             int offset = (int)(address - Address);
 
-            byte[] data = HostBuffer.GetData(offset, (int)size);
+            byte[] data = _context.Renderer.GetBufferData(Handle, offset, (int)size);
 
             _context.PhysicalMemory.Write(address, data);
-        }
-
-        /// <summary>
-        /// Invalidates all the buffer data, causing it to be read from guest memory.
-        /// </summary>
-        public void Invalidate()
-        {
-            HostBuffer.SetData(0, _context.PhysicalMemory.GetSpan(Address, Size));
         }
 
         /// <summary>
@@ -165,7 +159,7 @@ namespace Ryujinx.Graphics.Gpu.Memory
         /// </summary>
         public void Dispose()
         {
-            HostBuffer.Dispose();
+            _context.Renderer.DeleteBuffer(Handle);
         }
     }
 }

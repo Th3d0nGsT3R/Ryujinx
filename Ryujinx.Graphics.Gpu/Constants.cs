@@ -46,6 +46,11 @@ namespace Ryujinx.Graphics.Gpu
         public const int ShaderStages = 5;
 
         /// <summary>
+        /// Maximum number of vertex attributes.
+        /// </summary>
+        public const int TotalVertexAttribs = 16;
+
+        /// <summary>
         /// Maximum number of vertex buffers.
         /// </summary>
         public const int TotalVertexBuffers = 16;
@@ -54,5 +59,10 @@ namespace Ryujinx.Graphics.Gpu
         /// Maximum number of viewports.
         /// </summary>
         public const int TotalViewports = 16;
+
+        /// <summary>
+        /// Maximum size of gl_ClipDistance array in shaders.
+        /// </summary>
+        public const int TotalClipDistances = 8;
     }
 }

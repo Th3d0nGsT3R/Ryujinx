@@ -1,7 +1,10 @@
 ﻿using OpenTK.Graphics.OpenGL;
 using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.GAL;
+using Ryujinx.Graphics.OpenGL.Image;
+using Ryujinx.Graphics.OpenGL.Queries;
 using Ryujinx.Graphics.Shader;
+using System;
 
 namespace Ryujinx.Graphics.OpenGL
 {
@@ -36,9 +39,9 @@ namespace Ryujinx.Graphics.OpenGL
             return new Shader(shader);
         }
 
-        public IBuffer CreateBuffer(int size)
+        public BufferHandle CreateBuffer(int size)
         {
-            return new Buffer(size);
+            return Buffer.Create(size);
         }
 
         public IProgram CreateProgram(IShader[] shaders)
@@ -51,24 +54,46 @@ namespace Ryujinx.Graphics.OpenGL
             return new Sampler(info);
         }
 
-        public ITexture CreateTexture(TextureCreateInfo info)
+        public ITexture CreateTexture(TextureCreateInfo info, float scaleFactor)
         {
-            return info.Target == Target.TextureBuffer ? new TextureBuffer(info) : new TextureStorage(this, info).CreateDefaultView();
+            return info.Target == Target.TextureBuffer ? new TextureBuffer(info) : new TextureStorage(this, info, scaleFactor).CreateDefaultView();
+        }
+
+        public void DeleteBuffer(BufferHandle buffer)
+        {
+            Buffer.Delete(buffer);
+        }
+
+        public byte[] GetBufferData(BufferHandle buffer, int offset, int size)
+        {
+            return Buffer.GetData(buffer, offset, size);
         }
 
         public Capabilities GetCapabilities()
         {
             return new Capabilities(
                 HwCapabilities.SupportsAstcCompression,
+                HwCapabilities.SupportsImageLoadFormatted,
                 HwCapabilities.SupportsNonConstantTextureOffset,
+                HwCapabilities.SupportsViewportSwizzle,
                 HwCapabilities.MaximumComputeSharedMemorySize,
-                HwCapabilities.StorageBufferOffsetAlignment,
-                HwCapabilities.MaxSupportedAnisotropy);
+                HwCapabilities.MaximumSupportedAnisotropy,
+                HwCapabilities.StorageBufferOffsetAlignment);
         }
 
-        public ulong GetCounter(CounterType type)
+        public void SetBufferData(BufferHandle buffer, int offset, ReadOnlySpan<byte> data)
         {
-            return _counters.GetCounter(type);
+            Buffer.SetData(buffer, offset, data);
+        }
+
+        public void UpdateCounters()
+        {
+            _counters.Update();
+        }
+
+        public ICounterEvent ReportCounter(CounterType type, EventHandler<ulong> resultHandler)
+        {
+            return _counters.QueueReport(type, resultHandler);
         }
 
         public void Initialize()
@@ -89,7 +114,7 @@ namespace Ryujinx.Graphics.OpenGL
 
         public void ResetCounter(CounterType type)
         {
-            _counters.ResetCounter(type);
+            _counters.QueueReset(type);
         }
 
         public void Dispose()
@@ -97,6 +122,7 @@ namespace Ryujinx.Graphics.OpenGL
             TextureCopy.Dispose();
             _pipeline.Dispose();
             _window.Dispose();
+            _counters.Dispose();
         }
     }
 }

@@ -12,7 +12,9 @@ using Ryujinx.HLE.HOS.Kernel.Memory;
 using Ryujinx.HLE.HOS.Kernel.Threading;
 using Ryujinx.HLE.HOS.Services.Am.AppletAE.Storage;
 using Ryujinx.HLE.HOS.Services.Sdb.Pdm.QueryService;
+using Ryujinx.HLE.HOS.SystemState;
 using System;
+using System.Numerics;
 
 using static LibHac.Fs.ApplicationSaveDataManagement;
 using AccountUid = Ryujinx.HLE.HOS.Services.Account.Acc.UserId;
@@ -22,10 +24,14 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
     class IApplicationFunctions : IpcService
     {
         private KEvent _gpuErrorDetectedSystemEvent;
+        private KEvent _friendInvitationStorageChannelEvent;
+        private KEvent _notificationStorageChannelEvent;
 
         public IApplicationFunctions(Horizon system)
         {
-            _gpuErrorDetectedSystemEvent = new KEvent(system);
+            _gpuErrorDetectedSystemEvent         = new KEvent(system.KernelContext);
+            _friendInvitationStorageChannelEvent = new KEvent(system.KernelContext);
+            _notificationStorageChannelEvent     = new KEvent(system.KernelContext);
         }
 
         [Command(1)]
@@ -45,7 +51,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             Uid     userId  = context.RequestData.ReadStruct<AccountUid>().ToLibHacUid();
             TitleId titleId = new TitleId(context.Process.TitleId);
 
-            BlitStruct<ApplicationControlProperty> controlHolder = context.Device.System.ControlData;
+            BlitStruct<ApplicationControlProperty> controlHolder = context.Device.Application.ControlData;
 
             ref ApplicationControlProperty control = ref controlHolder.Value;
 
@@ -75,7 +81,36 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         // GetDesiredLanguage() -> nn::settings::LanguageCode
         public ResultCode GetDesiredLanguage(ServiceCtx context)
         {
-            context.ResponseData.Write(context.Device.System.State.DesiredLanguageCode);
+            // This seems to be calling ns:am GetApplicationDesiredLanguage followed by ConvertApplicationLanguageToLanguageCode
+            // Calls are from a IReadOnlyApplicationControlDataInterface object
+            // ConvertApplicationLanguageToLanguageCode compares language code strings and returns the index
+            // TODO: When above calls are implemented, switch to using ns:am
+
+            long desiredLanguageCode = context.Device.System.State.DesiredLanguageCode;
+            
+            int supportedLanguages = (int)context.Device.Application.ControlData.Value.SupportedLanguages;
+            int firstSupported = BitOperations.TrailingZeroCount(supportedLanguages);
+
+            if (firstSupported > (int)SystemState.TitleLanguage.Chinese)
+            {
+                Logger.PrintWarning(LogClass.ServiceAm, "Application has zero supported languages");
+
+                context.ResponseData.Write(desiredLanguageCode);
+
+                return ResultCode.Success;
+            }
+
+            // If desired language is not supported by application, use first supported language from TitleLanguage. 
+            // TODO: In the future, a GUI could enable user-specified search priority
+            if (((1 << (int)context.Device.System.State.DesiredTitleLanguage) & supportedLanguages) == 0)
+            {
+                SystemLanguage newLanguage = Enum.Parse<SystemLanguage>(Enum.GetName(typeof(SystemState.TitleLanguage), firstSupported));
+                desiredLanguageCode = SystemStateMgr.GetLanguageCode((int)newLanguage);
+
+                Logger.PrintInfo(LogClass.ServiceAm, $"Application doesn't support configured language. Using {newLanguage}");
+            }
+
+            context.ResponseData.Write(desiredLanguageCode);
 
             return ResultCode.Success;
         }
@@ -95,9 +130,9 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         // GetDisplayVersion() -> nn::oe::DisplayVersion
         public ResultCode GetDisplayVersion(ServiceCtx context)
         {
-            // FIXME: Need to check correct version on a switch.
-            context.ResponseData.Write(1L);
-            context.ResponseData.Write(0L);
+            // This should work as DisplayVersion U8Span always gives a 0x10 size byte array.
+            // If an NACP isn't found, the buffer will be all '\0' which seems to be the correct implementation.
+            context.ResponseData.Write(context.Device.Application.ControlData.Value.DisplayVersion);
 
             return ResultCode.Success;
         }
@@ -298,6 +333,34 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             // NOTE: This is used by "sdk" NSO during applet-application initialization. 
             //       A seperate thread is setup where event-waiting is handled. 
             //       When the Event is signaled, official sw will assert.
+
+            return ResultCode.Success;
+        }
+
+        [Command(140)] // 9.0.0+
+        // GetFriendInvitationStorageChannelEvent() -> handle<copy>
+        public ResultCode GetFriendInvitationStorageChannelEvent(ServiceCtx context)
+        {
+            if (context.Process.HandleTable.GenerateHandle(_friendInvitationStorageChannelEvent.ReadableEvent, out int friendInvitationStorageChannelEventHandle) != KernelResult.Success)
+            {
+                throw new InvalidOperationException("Out of handles!");
+            }
+
+            context.Response.HandleDesc = IpcHandleDesc.MakeCopy(friendInvitationStorageChannelEventHandle);
+
+            return ResultCode.Success;
+        }
+
+        [Command(150)] // 9.0.0+
+        // GetNotificationStorageChannelEvent() -> handle<copy>
+        public ResultCode GetNotificationStorageChannelEvent(ServiceCtx context)
+        {
+            if (context.Process.HandleTable.GenerateHandle(_notificationStorageChannelEvent.ReadableEvent, out int notificationStorageChannelEventHandle) != KernelResult.Success)
+            {
+                throw new InvalidOperationException("Out of handles!");
+            }
+
+            context.Response.HandleDesc = IpcHandleDesc.MakeCopy(notificationStorageChannelEventHandle);
 
             return ResultCode.Success;
         }

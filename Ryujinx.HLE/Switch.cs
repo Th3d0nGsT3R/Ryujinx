@@ -9,6 +9,7 @@ using Ryujinx.HLE.HOS;
 using Ryujinx.HLE.HOS.Services;
 using Ryujinx.HLE.HOS.Services.Hid;
 using Ryujinx.HLE.HOS.SystemState;
+using Ryujinx.Memory;
 using System;
 using System.Threading;
 
@@ -18,13 +19,15 @@ namespace Ryujinx.HLE
     {
         public IAalOutput AudioOut { get; private set; }
 
-        internal DeviceMemory Memory { get; private set; }
+        internal MemoryBlock Memory { get; private set; }
 
         public GpuContext Gpu { get; private set; }
 
         public VirtualFileSystem FileSystem { get; private set; }
 
         public Horizon System { get; private set; }
+
+        public ApplicationLoader Application { get; }
 
         public PerformanceStatistics Statistics { get; private set; }
 
@@ -46,7 +49,7 @@ namespace Ryujinx.HLE
 
             AudioOut = audioOut;
 
-            Memory = new DeviceMemory();
+            Memory = new MemoryBlock(1UL << 32);
 
             Gpu = new GpuContext(renderer);
 
@@ -58,13 +61,15 @@ namespace Ryujinx.HLE
 
             Hid = new Hid(this, System.HidBaseAddress);
             Hid.InitDevices();
+
+            Application = new ApplicationLoader(this, fileSystem, contentManager);
         }
 
         public void Initialize()
         {
             System.State.SetLanguage((SystemLanguage)ConfigurationState.Instance.System.Language.Value);
 
-            System.State.SetRegion((SystemRegion)ConfigurationState.Instance.System.Region.Value);
+            System.State.SetRegion((RegionCode)ConfigurationState.Instance.System.Region.Value);
 
             EnableDeviceVsync = ConfigurationState.Instance.Graphics.EnableVsync;
 
@@ -75,14 +80,16 @@ namespace Ryujinx.HLE
                 System.EnableMultiCoreScheduling();
             }
 
-            System.FsIntegrityCheckLevel = GetIntigrityCheckLevel();
+            System.EnablePtc = ConfigurationState.Instance.System.EnablePtc;
+
+            System.FsIntegrityCheckLevel = GetIntegrityCheckLevel();
 
             System.GlobalAccessLogMode = ConfigurationState.Instance.System.FsGlobalAccessLogMode;
 
             ServiceConfiguration.IgnoreMissingServices = ConfigurationState.Instance.System.IgnoreMissingServices;
         }
 
-        public static IntegrityCheckLevel GetIntigrityCheckLevel()
+        public static IntegrityCheckLevel GetIntegrityCheckLevel()
         {
             return ConfigurationState.Instance.System.EnableFsIntegrityChecks
                 ? IntegrityCheckLevel.ErrorOnInvalid
@@ -91,27 +98,27 @@ namespace Ryujinx.HLE
 
         public void LoadCart(string exeFsDir, string romFsFile = null)
         {
-            System.LoadCart(exeFsDir, romFsFile);
+            Application.LoadCart(exeFsDir, romFsFile);
         }
 
         public void LoadXci(string xciFile)
         {
-            System.LoadXci(xciFile);
+            Application.LoadXci(xciFile);
         }
 
         public void LoadNca(string ncaFile)
         {
-            System.LoadNca(ncaFile);
+            Application.LoadNca(ncaFile);
         }
 
         public void LoadNsp(string nspFile)
         {
-            System.LoadNsp(nspFile);
+            Application.LoadNsp(nspFile);
         }
 
         public void LoadProgram(string fileName)
         {
-            System.LoadProgram(fileName);
+            Application.LoadProgram(fileName);
         }
 
         public bool WaitFifo()

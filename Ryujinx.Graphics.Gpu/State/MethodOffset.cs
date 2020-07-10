@@ -8,7 +8,8 @@ namespace Ryujinx.Graphics.Gpu.State
     /// </remarks>
     enum MethodOffset
     {
-        BindChannel                     = 0x00,
+        BindChannel                     = 0x0,
+        Semaphore                       = 0x4,
         FenceValue                      = 0x1c,
         FenceAction                     = 0x1d,
         WaitForIdle                     = 0x44,
@@ -57,6 +58,7 @@ namespace Ryujinx.Graphics.Gpu.State
         DepthTestEnable                 = 0x4b3,
         BlendIndependent                = 0x4b9,
         DepthWriteEnable                = 0x4ba,
+        VbElementU8                     = 0x4c1,
         DepthTestFunc                   = 0x4c3,
         BlendConstant                   = 0x4c7,
         BlendStateCommon                = 0x4cf,
@@ -66,6 +68,7 @@ namespace Ryujinx.Graphics.Gpu.State
         YControl                        = 0x4eb,
         FirstVertex                     = 0x50d,
         FirstInstance                   = 0x50e,
+        ClipDistanceEnable              = 0x544,
         PointSize                       = 0x546,
         ResetCounter                    = 0x54c,
         RtDepthStencilEnable            = 0x54e,
@@ -76,6 +79,8 @@ namespace Ryujinx.Graphics.Gpu.State
         StencilBackTestState            = 0x565,
         DepthBiasUnits                  = 0x56f,
         RtMsaaMode                      = 0x574,
+        VbElementU32                    = 0x57a,
+        VbElementU16                    = 0x57c,
         ShaderBaseAddress               = 0x582,
         DrawEnd                         = 0x585,
         DrawBegin                       = 0x586,
@@ -87,6 +92,7 @@ namespace Ryujinx.Graphics.Gpu.State
         FaceState                       = 0x646,
         ViewportTransformEnable         = 0x64b,
         ViewVolumeClipControl           = 0x64f,
+        LogicOpState                    = 0x671,
         Clear                           = 0x674,
         RtColorMask                     = 0x680,
         ReportState                     = 0x6c0,

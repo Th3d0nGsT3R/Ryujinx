@@ -8,6 +8,8 @@
     <EmbeddedResource Include="CodeGen\Glsl\HelperFunctions\ShuffleUp.glsl" />
     <EmbeddedResource Include="CodeGen\Glsl\HelperFunctions\ShuffleXor.glsl" />
     <EmbeddedResource Include="CodeGen\Glsl\HelperFunctions\SwizzleAdd.glsl" />
+    <EmbeddedResource Include="CodeGen\Glsl\HelperFunctions\TexelFetchScale_fp.glsl" />
+    <EmbeddedResource Include="CodeGen\Glsl\HelperFunctions\TexelFetchScale_cp.glsl" />
   </ItemGroup>
 
   <ItemGroup>
@@ -16,6 +18,7 @@
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
+    <LangVersion>8.0</LangVersion>
     <RuntimeIdentifiers>win-x64;osx-x64;linux-x64</RuntimeIdentifiers>
   </PropertyGroup>
 
