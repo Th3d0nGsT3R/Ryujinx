@@ -13,13 +13,22 @@ namespace Ryujinx.Tests.Cpu
 #if SimdReg32
 
 #region "ValueSource (Opcodes)"
+        private static uint[] _V_Add_Sub_Wide_I_()
+        {
+            return new uint[]
+            {
+                0xf2800100u, // VADDW.S8 Q0, Q0, D0
+                0xf2800300u  // VSUBW.S8 Q0, Q0, D0
+            };
+        }
+
         private static uint[] _Vp_Add_Max_Min_F_()
         {
             return new uint[]
             {
                 0xf3000d00u, // VPADD.F32 D0, D0, D0
                 0xf3000f00u, // VPMAX.F32 D0, D0, D0
-                0xf3200f00u // VPMIN.F32 D0, D0, D0
+                0xf3200f00u  // VPMIN.F32 D0, D0, D0
             };
         }
 
@@ -32,66 +41,12 @@ namespace Ryujinx.Tests.Cpu
             {
                 VpaddI8,
                 0xf2000a00u, // VPMAX.S8 D0, D0, D0
-                0xf2000a10u // VPMIN.S8 D0, D0, D0
+                0xf2000a10u  // VPMIN.S8 D0, D0, D0
             };
         }
 #endregion
 
 #region "ValueSource (Types)"
-        private static ulong[] _1B1H1S1D_()
-        {
-            return new ulong[] { 0x0000000000000000ul, 0x000000000000007Ful,
-                                 0x0000000000000080ul, 0x00000000000000FFul,
-                                 0x0000000000007FFFul, 0x0000000000008000ul,
-                                 0x000000000000FFFFul, 0x000000007FFFFFFFul,
-                                 0x0000000080000000ul, 0x00000000FFFFFFFFul,
-                                 0x7FFFFFFFFFFFFFFFul, 0x8000000000000000ul,
-                                 0xFFFFFFFFFFFFFFFFul };
-        }
-
-        private static ulong[] _1D_()
-        {
-            return new ulong[] { 0x0000000000000000ul, 0x7FFFFFFFFFFFFFFFul,
-                                 0x8000000000000000ul, 0xFFFFFFFFFFFFFFFFul };
-        }
-
-        private static ulong[] _1H1S_()
-        {
-            return new ulong[] { 0x0000000000000000ul, 0x0000000000007FFFul,
-                                 0x0000000000008000ul, 0x000000000000FFFFul,
-                                 0x000000007FFFFFFFul, 0x0000000080000000ul,
-                                 0x00000000FFFFFFFFul };
-        }
-
-        private static ulong[] _4H2S_()
-        {
-            return new ulong[] { 0x0000000000000000ul, 0x7FFF7FFF7FFF7FFFul,
-                                 0x8000800080008000ul, 0x7FFFFFFF7FFFFFFFul,
-                                 0x8000000080000000ul, 0xFFFFFFFFFFFFFFFFul };
-        }
-
-        private static ulong[] _4H2S1D_()
-        {
-            return new ulong[] { 0x0000000000000000ul, 0x7FFF7FFF7FFF7FFFul,
-                                 0x8000800080008000ul, 0x7FFFFFFF7FFFFFFFul,
-                                 0x8000000080000000ul, 0x7FFFFFFFFFFFFFFFul,
-                                 0x8000000000000000ul, 0xFFFFFFFFFFFFFFFFul };
-        }
-
-        private static ulong[] _8B_()
-        {
-            return new ulong[] { 0x0000000000000000ul, 0x7F7F7F7F7F7F7F7Ful,
-                                 0x8080808080808080ul, 0xFFFFFFFFFFFFFFFFul };
-        }
-
-        private static ulong[] _8B4H2S_()
-        {
-            return new ulong[] { 0x0000000000000000ul, 0x7F7F7F7F7F7F7F7Ful,
-                                 0x8080808080808080ul, 0x7FFF7FFF7FFF7FFFul,
-                                 0x8000800080008000ul, 0x7FFFFFFF7FFFFFFFul,
-                                 0x8000000080000000ul, 0xFFFFFFFFFFFFFFFFul };
-        }
-
         private static ulong[] _8B4H2S1D_()
         {
             return new ulong[] { 0x0000000000000000ul, 0x7F7F7F7F7F7F7F7Ful,
@@ -234,7 +189,7 @@ namespace Ryujinx.Tests.Cpu
 
         [Explicit]
         [Test, Pairwise, Description("VADD.f32 V0, V0, V0")]
-        public void Vadd_f32([Values(0u)]    uint rd,
+        public void Vadd_f32([Values(0u)] uint rd,
                              [Values(0u, 1u)] uint rn,
                              [Values(0u, 2u)] uint rm,
                              [ValueSource("_2S_F_")] ulong z0,
@@ -261,6 +216,40 @@ namespace Ryujinx.Tests.Cpu
             V128 v0 = MakeVectorE0E1(z0, z1);
             V128 v1 = MakeVectorE0E1(a0, a1);
             V128 v2 = MakeVectorE0E1(b0, b1);
+
+            SingleOpcode(opcode, v0: v0, v1: v1, v2: v2);
+
+            CompareAgainstUnicorn();
+        }
+
+        [Test, Pairwise]
+        public void V_Add_Sub_Wide_I([ValueSource("_V_Add_Sub_Wide_I_")] uint opcode,
+                                     [Range(0u, 5u)] uint rd,
+                                     [Range(0u, 5u)] uint rn,
+                                     [Range(0u, 5u)] uint rm,
+                                     [ValueSource("_8B4H2S1D_")] [Random(RndCnt)] ulong z,
+                                     [ValueSource("_8B4H2S1D_")] [Random(RndCnt)] ulong a,
+                                     [ValueSource("_8B4H2S1D_")] [Random(RndCnt)] ulong b,
+                                     [Values(0u, 1u, 2u)] uint size, // <SU8, SU16, SU32>
+                                     [Values] bool u) // <S, U>
+        {
+            if (u)
+            {
+                opcode |= 1 << 24;
+            }
+
+            rd >>= 1; rd <<= 1;
+            rn >>= 1; rn <<= 1;
+
+            opcode |= ((rd & 0xf) << 12) | ((rd & 0x10) << 18);
+            opcode |= ((rn & 0xf) << 16) | ((rn & 0x10) << 3);
+            opcode |= ((rm & 0xf) << 0)  | ((rm & 0x10) << 1);
+
+            opcode |= (size & 0x3) << 20;
+
+            V128 v0 = MakeVectorE0E1(z, ~z);
+            V128 v1 = MakeVectorE0E1(a, ~a);
+            V128 v2 = MakeVectorE0E1(b, ~b);
 
             SingleOpcode(opcode, v0: v0, v1: v1, v2: v2);
 
@@ -297,16 +286,11 @@ namespace Ryujinx.Tests.Cpu
             V128 v1 = MakeVectorE0(a);
             V128 v2 = MakeVectorE0(b);
 
-            bool v = TestContext.CurrentContext.Random.NextBool();
-            bool c = TestContext.CurrentContext.Random.NextBool();
-            bool z = TestContext.CurrentContext.Random.NextBool();
-            bool n = TestContext.CurrentContext.Random.NextBool();
-
             int fpscr = (int)(TestContext.CurrentContext.Random.NextUInt(0xf) << 28);
 
-            SingleOpcode(opcode, v1: v1, v2: v2, overflow: v, carry: c, zero: z, negative: n, fpscr: fpscr, copyFpFlags: true);
+            SingleOpcode(opcode, v1: v1, v2: v2, fpscr: fpscr);
 
-            CompareAgainstUnicorn();
+            CompareAgainstUnicorn(fpsrMask: Fpsr.Nzcv);
         }
 
         [Test, Pairwise, Description("VMLSL.<type><size> <Vd>, <Vn>, <Vm>")]

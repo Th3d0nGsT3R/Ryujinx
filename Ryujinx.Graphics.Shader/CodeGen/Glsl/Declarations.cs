@@ -15,7 +15,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
 
         public static void Declare(CodeGenContext context, StructuredProgramInfo info)
         {
-            context.AppendLine("#version 430 core");
+            context.AppendLine("#version 440 core");
             context.AppendLine("#extension GL_ARB_gpu_shader_int64 : enable");
             context.AppendLine("#extension GL_ARB_shader_ballot : enable");
             context.AppendLine("#extension GL_ARB_shader_group_vote : enable");
@@ -139,6 +139,12 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
 
             if (context.Config.Stage == ShaderStage.Fragment || context.Config.Stage == ShaderStage.Compute)
             {
+                if (context.Config.Stage == ShaderStage.Fragment)
+                {
+                    context.AppendLine($"uniform bool {DefaultNames.IsBgraName}[8];");
+                    context.AppendLine();
+                }
+
                 if (DeclareRenderScale(context))
                 {
                     context.AppendLine();
@@ -234,7 +240,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
                 string stage = OperandManager.GetShaderStagePrefix(context.Config.Stage);
 
                 int scaleElements = context.TextureDescriptors.Count;
-                
+
                 if (context.Config.Stage == ShaderStage.Fragment)
                 {
                     scaleElements++; // Also includes render target scale, for gl_FragCoord.
@@ -424,7 +430,21 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
                     };
                 }
 
-                context.AppendLine($"layout (location = {attr}) {iq}in vec4 {DefaultNames.IAttributePrefix}{attr}{suffix};");
+                string name = $"{DefaultNames.IAttributePrefix}{attr}";
+
+                if ((context.Config.Flags & TranslationFlags.Feedback) != 0)
+                {
+                    for (int c = 0; c < 4; c++)
+                    {
+                        char swzMask = "xyzw"[c];
+
+                        context.AppendLine($"layout (location = {attr}, component = {c}) {iq}in float {name}_{swzMask}{suffix};");
+                    }
+                }
+                else
+                {
+                    context.AppendLine($"layout (location = {attr}) {iq}in vec4 {name}{suffix};");
+                }
             }
         }
 
@@ -452,12 +472,31 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
         {
             for (int attr = 0; attr < MaxAttributes; attr++)
             {
-                context.AppendLine($"layout (location = {attr}) out vec4 {DefaultNames.OAttributePrefix}{attr};");
+                DeclareOutputAttribute(context, attr);
             }
 
             foreach (int attr in info.OAttributes.OrderBy(x => x).Where(x => x >= MaxAttributes))
             {
-                context.AppendLine($"layout (location = {attr}) out vec4 {DefaultNames.OAttributePrefix}{attr};");
+                DeclareOutputAttribute(context, attr);
+            }
+        }
+
+        private static void DeclareOutputAttribute(CodeGenContext context, int attr)
+        {
+            string name = $"{DefaultNames.OAttributePrefix}{attr}";
+
+            if ((context.Config.Flags & TranslationFlags.Feedback) != 0)
+            {
+                for (int c = 0; c < 4; c++)
+                {
+                    char swzMask = "xyzw"[c];
+
+                    context.AppendLine($"layout (location = {attr}, component = {c}) out float {name}_{swzMask};");
+                }
+            }
+            else
+            {
+                context.AppendLine($"layout (location = {attr}) out vec4 {name};");
             }
         }
 

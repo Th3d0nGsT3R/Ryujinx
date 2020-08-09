@@ -11,8 +11,6 @@ namespace Ryujinx.Graphics.Shader.Translation
         public Block  CurrBlock { get; set; }
         public OpCode CurrOp    { get; set; }
 
-        public FeatureFlags UsedFeatures { get; set; }
-
         public ShaderConfig Config { get; }
 
         private List<Operation> _operations;
@@ -50,7 +48,7 @@ namespace Ryujinx.Graphics.Shader.Translation
                 {
                     case AttributeConsts.PositionX:
                     case AttributeConsts.PositionY:
-                        UsedFeatures |= FeatureFlags.FragCoordXY;
+                        Config.SetUsedFeature(FeatureFlags.FragCoordXY);
                         break;
                 }
             }
@@ -115,22 +113,46 @@ namespace Ryujinx.Graphics.Shader.Translation
 
                 int regIndex = 0;
 
-                for (int attachment = 0; attachment < 8; attachment++)
+                for (int rtIndex = 0; rtIndex < 8; rtIndex++)
                 {
-                    OmapTarget target = Config.OmapTargets[attachment];
+                    OmapTarget target = Config.OmapTargets[rtIndex];
 
                     for (int component = 0; component < 4; component++)
                     {
-                        if (target.ComponentEnabled(component))
+                        if (!target.ComponentEnabled(component))
                         {
-                            Operand dest = Attribute(AttributeConsts.FragmentOutputColorBase + attachment * 16 + component * 4);
-
-                            Operand src = Register(regIndex, RegisterType.Gpr);
-
-                            this.Copy(dest, src);
-
-                            regIndex++;
+                            continue;
                         }
+
+                        int fragmentOutputColorAttr = AttributeConsts.FragmentOutputColorBase + rtIndex * 16;
+
+                        Operand src = Register(regIndex, RegisterType.Gpr);
+
+                        // Perform B <-> R swap if needed, for BGRA formats (not supported on OpenGL).
+                        if (component == 0 || component == 2)
+                        {
+                            Operand isBgra = Attribute(AttributeConsts.FragmentOutputIsBgraBase + rtIndex * 4);
+
+                            Operand lblIsBgra = Label();
+                            Operand lblEnd    = Label();
+
+                            this.BranchIfTrue(lblIsBgra, isBgra);
+
+                            this.Copy(Attribute(fragmentOutputColorAttr + component * 4), src);
+                            this.Branch(lblEnd);
+
+                            MarkLabel(lblIsBgra);
+
+                            this.Copy(Attribute(fragmentOutputColorAttr + (2 - component) * 4), src);
+
+                            MarkLabel(lblEnd);
+                        }
+                        else
+                        {
+                            this.Copy(Attribute(fragmentOutputColorAttr + component * 4), src);
+                        }
+
+                        regIndex++;
                     }
                 }
             }

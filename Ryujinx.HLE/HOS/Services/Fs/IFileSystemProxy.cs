@@ -6,6 +6,7 @@ using LibHac.FsSystem.NcaUtils;
 using LibHac.Ncm;
 using Ryujinx.Common;
 using Ryujinx.Common.Logging;
+using Ryujinx.Cpu;
 using Ryujinx.HLE.HOS.Services.Fs.FileSystemProxy;
 using System.IO;
 
@@ -145,7 +146,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs
                 creationInfo.OwnerId = new TitleId(context.Process.TitleId);
             }
 
-            Logger.PrintInfo(LogClass.ServiceFs, $"Creating save with title ID {attribute.TitleId.Value:x16}");
+            Logger.Info?.Print(LogClass.ServiceFs, $"Creating save with title ID {attribute.TitleId.Value:x16}");
 
             Result result = _baseFileSystemProxy.CreateSaveDataFileSystem(ref attribute, ref creationInfo, ref metaCreateInfo);
 
@@ -320,6 +321,26 @@ namespace Ryujinx.HLE.HOS.Services.Fs
             return (ResultCode)result.Value;
         }
 
+        [Command(62)]
+        public ResultCode OpenSaveDataInfoReaderOnlyCacheStorage(ServiceCtx context)
+        {
+            SaveDataFilter filter = new SaveDataFilter();
+            filter.SetSaveDataType(SaveDataType.Cache);
+            filter.SetProgramId(new TitleId(context.Process.TitleId));
+
+            // FS would query the User and SdCache space IDs to find where the existing cache is (if any). 
+            // We always have the SD card inserted, so we can always use SdCache for now.
+            Result result = _baseFileSystemProxy.OpenSaveDataInfoReaderBySaveDataSpaceId(
+                    out LibHac.FsService.ISaveDataInfoReader infoReader, SaveDataSpaceId.SdCache);
+
+            if (result.IsSuccess())
+            {
+                MakeObject(context, new ISaveDataInfoReader(infoReader));
+            }
+
+            return (ResultCode)result.Value;
+        }
+
         [Command(67)]
         public ResultCode FindSaveDataWithFilter(ServiceCtx context)
         {
@@ -355,6 +376,16 @@ namespace Ryujinx.HLE.HOS.Services.Fs
             return (ResultCode)result.Value;
         }
 
+        [Command(71)]
+        public ResultCode ReadSaveDataFileSystemExtraDataWithMaskBySaveDataAttribute(ServiceCtx context)
+        {
+            Logger.Stub?.PrintStub(LogClass.ServiceFs);
+
+            MemoryHelper.FillWithZeros(context.Memory, context.Request.ReceiveBuff[0].Position, (int)context.Request.ReceiveBuff[0].Size);
+
+            return ResultCode.Success;
+        }
+
         [Command(200)]
         // OpenDataStorageByCurrentProcess() -> object<nn::fssrv::sf::IStorage> dataStorage
         public ResultCode OpenDataStorageByCurrentProcess(ServiceCtx context)
@@ -376,10 +407,10 @@ namespace Ryujinx.HLE.HOS.Services.Fs
             // This is because AOC can be distributed over multiple containers in the emulator.
             if (context.Device.System.ContentManager.GetAocDataStorage((ulong)titleId, out LibHac.Fs.IStorage aocStorage))
             {
-                Logger.PrintInfo(LogClass.Loader, $"Opened AddOnContent Data TitleID={titleId:X16}");
+                Logger.Info?.Print(LogClass.Loader, $"Opened AddOnContent Data TitleID={titleId:X16}");
 
                 MakeObject(context, new FileSystemProxy.IStorage(aocStorage));
-                
+
                 return ResultCode.Success;
             }
 
@@ -506,7 +537,7 @@ namespace Ryujinx.HLE.HOS.Services.Fs
             string message = ReadUtf8StringSend(context);
 
             // FS ends each line with a newline. Remove it because Ryujinx logging adds its own newline
-            Logger.PrintAccessLog(LogClass.ServiceFs, message.TrimEnd('\n'));
+            Logger.AccessLog?.PrintMsg(LogClass.ServiceFs, message.TrimEnd('\n'));
 
             return ResultCode.Success;
         }

@@ -3,6 +3,9 @@ using Ryujinx.Audio;
 using Ryujinx.Configuration;
 using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.Gpu;
+using Ryujinx.Graphics.Host1x;
+using Ryujinx.Graphics.Nvdec;
+using Ryujinx.Graphics.Vic;
 using Ryujinx.HLE.FileSystem;
 using Ryujinx.HLE.FileSystem.Content;
 using Ryujinx.HLE.HOS;
@@ -11,7 +14,6 @@ using Ryujinx.HLE.HOS.Services.Hid;
 using Ryujinx.HLE.HOS.SystemState;
 using Ryujinx.Memory;
 using System;
-using System.Threading;
 
 namespace Ryujinx.HLE
 {
@@ -23,6 +25,8 @@ namespace Ryujinx.HLE
 
         public GpuContext Gpu { get; private set; }
 
+        internal Host1xDevice Host1x { get; }
+
         public VirtualFileSystem FileSystem { get; private set; }
 
         public Horizon System { get; private set; }
@@ -32,6 +36,8 @@ namespace Ryujinx.HLE
         public PerformanceStatistics Statistics { get; private set; }
 
         public Hid Hid { get; private set; }
+
+        public IHostUiHandler UiHandler { get; set; }
 
         public bool EnableDeviceVsync { get; set; } = true;
 
@@ -52,6 +58,27 @@ namespace Ryujinx.HLE
             Memory = new MemoryBlock(1UL << 32);
 
             Gpu = new GpuContext(renderer);
+
+            Host1x = new Host1xDevice(Gpu.Synchronization);
+            var nvdec = new NvdecDevice(Gpu.MemoryManager);
+            var vic = new VicDevice(Gpu.MemoryManager);
+            Host1x.RegisterDevice(ClassId.Nvdec, nvdec);
+            Host1x.RegisterDevice(ClassId.Vic, vic);
+
+            nvdec.FrameDecoded += (FrameDecodedEventArgs e) =>
+            {
+                // FIXME:
+                // Figure out what is causing frame ordering issues on H264.
+                // For now this is needed as workaround.
+                if (e.CodecId == CodecId.H264)
+                {
+                    vic.SetSurfaceOverride(e.LumaOffset, e.ChromaOffset, 0);
+                }
+                else
+                {
+                    vic.DisableSurfaceOverride();
+                }
+            };
 
             FileSystem = fileSystem;
 
@@ -123,24 +150,17 @@ namespace Ryujinx.HLE
 
         public bool WaitFifo()
         {
-            return Gpu.DmaPusher.WaitForCommands();
+            return Gpu.GPFifo.WaitForCommands();
         }
 
         public void ProcessFrame()
         {
-            Gpu.DmaPusher.DispatchCalls();
+            Gpu.GPFifo.DispatchCalls();
         }
 
         public void PresentFrame(Action swapBuffersCallback)
         {
             Gpu.Window.Present(swapBuffersCallback);
-        }
-
-        internal void Unload()
-        {
-            FileSystem.Unload();
-
-            Memory.Dispose();
         }
 
         public void DisposeGpu()
@@ -158,7 +178,10 @@ namespace Ryujinx.HLE
             if (disposing)
             {
                 System.Dispose();
+                Host1x.Dispose();
                 AudioOut.Dispose();
+                FileSystem.Unload();
+                Memory.Dispose();
             }
         }
     }

@@ -7,6 +7,8 @@ namespace Ryujinx.Graphics.GAL
     {
         void Barrier();
 
+        void BeginTransformFeedback(PrimitiveTopology topology);
+
         void ClearRenderTargetColor(int index, uint componentMask, ColorF color);
 
         void ClearRenderTargetDepthStencil(
@@ -27,6 +29,10 @@ namespace Ryujinx.Graphics.GAL
             int firstVertex,
             int firstInstance);
 
+        void EndTransformFeedback();
+
+        void SetAlphaTest(bool enable, float reference, CompareOp op);
+
         void SetBlendState(int index, BlendDescriptor blend);
 
         void SetDepthBias(PolygonModeMask enables, float factor, float units, float clamp);
@@ -46,7 +52,7 @@ namespace Ryujinx.Graphics.GAL
 
         void SetOrigin(Origin origin);
 
-        void SetPointSize(float size);
+        void SetPointParameters(float size, bool isProgramPointSize, bool enablePointSprite, Origin origin);
 
         void SetPrimitiveRestart(bool enable, int index);
 
@@ -57,9 +63,7 @@ namespace Ryujinx.Graphics.GAL
         void SetRasterizerDiscard(bool discard);
 
         void SetRenderTargetScale(float scale);
-
         void SetRenderTargetColorMasks(ReadOnlySpan<uint> componentMask);
-
         void SetRenderTargets(ITexture[] colors, ITexture depthStencil);
 
         void SetSampler(int index, ShaderStage stage, ISampler sampler);
@@ -73,6 +77,7 @@ namespace Ryujinx.Graphics.GAL
 
         void SetTexture(int index, ShaderStage stage, ITexture texture);
 
+        void SetTransformFeedbackBuffer(int index, BufferRange buffer);
         void SetUniformBuffer(int index, ShaderStage stage, BufferRange buffer);
 
         void SetUserClipDistance(int index, bool enableClip);

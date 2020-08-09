@@ -101,7 +101,7 @@ namespace ARMeilleure.CodeGen.X86
                             if (callConv == CallConvName.Windows)
                             {
                                 HandleTailcallWindowsAbi(block.Operations, stackAlloc, node, operation);
-                            } 
+                            }
                             else
                             {
                                 HandleTailcallSystemVAbi(block.Operations, stackAlloc, node, operation);
@@ -154,7 +154,7 @@ namespace ARMeilleure.CodeGen.X86
                     // -- Doing so may allow us to encode the constant as operand 2 and avoid a copy.
                     // - If the constant is on operand 2, we check if the instruction supports it,
                     // if not, we also add a copy. 64-bits constants are usually not supported.
-                    if (IsCommutative(inst))
+                    if (IsCommutative(operation))
                     {
                         src2 = operation.GetSource(1);
 
@@ -207,6 +207,8 @@ namespace ARMeilleure.CodeGen.X86
             switch (operation.Instruction)
             {
                 case Instruction.CompareAndSwap:
+                case Instruction.CompareAndSwap16:
+                case Instruction.CompareAndSwap8:
                 {
                     OperandType type = operation.GetSource(1).Type;
 
@@ -887,7 +889,7 @@ namespace ARMeilleure.CodeGen.X86
                     HandleConstantRegCopy(nodes, nodes.AddBefore(node, copyOp), copyOp);
 
                     sources.Add(argReg);
-                } 
+                }
                 else
                 {
                     throw new NotImplementedException("Spilling is not currently supported for tail calls. (too many arguments)");
@@ -1294,9 +1296,20 @@ namespace ARMeilleure.CodeGen.X86
                 case Instruction.VectorInsert16:
                 case Instruction.VectorInsert8:
                     return !HardwareCapabilities.SupportsVexEncoding;
+
+                case Instruction.Extended:
+                    return IsIntrinsicSameOperandDestSrc1(operation);
             }
 
             return IsVexSameOperandDestSrc1(operation);
+        }
+
+        private static bool IsIntrinsicSameOperandDestSrc1(Operation operation)
+        {
+            IntrinsicOperation intrinOp = (IntrinsicOperation)operation;
+            IntrinsicInfo info = IntrinsicTable.GetInfo(intrinOp.Intrinsic);
+
+            return info.Type == IntrinsicType.Crc32 || IsVexSameOperandDestSrc1(operation);
         }
 
         private static bool IsVexSameOperandDestSrc1(Operation operation)
@@ -1335,16 +1348,8 @@ namespace ARMeilleure.CodeGen.X86
                 case Instruction.BitwiseAnd:
                 case Instruction.BitwiseExclusiveOr:
                 case Instruction.BitwiseOr:
-                case Instruction.CompareEqual:
-                case Instruction.CompareGreater:
-                case Instruction.CompareGreaterOrEqual:
-                case Instruction.CompareGreaterOrEqualUI:
-                case Instruction.CompareGreaterUI:
-                case Instruction.CompareLess:
-                case Instruction.CompareLessOrEqual:
-                case Instruction.CompareLessOrEqualUI:
-                case Instruction.CompareLessUI:
-                case Instruction.CompareNotEqual:
+                case Instruction.BranchIf:
+                case Instruction.Compare:
                 case Instruction.Multiply:
                 case Instruction.RotateRight:
                 case Instruction.ShiftLeft:
@@ -1363,18 +1368,28 @@ namespace ARMeilleure.CodeGen.X86
             return false;
         }
 
-        private static bool IsCommutative(Instruction inst)
+        private static bool IsCommutative(Operation operation)
         {
-            switch (inst)
+            switch (operation.Instruction)
             {
                 case Instruction.Add:
                 case Instruction.BitwiseAnd:
                 case Instruction.BitwiseExclusiveOr:
                 case Instruction.BitwiseOr:
-                case Instruction.CompareEqual:
-                case Instruction.CompareNotEqual:
                 case Instruction.Multiply:
                     return true;
+
+                case Instruction.BranchIf:
+                case Instruction.Compare:
+                {
+                    Operand comp = operation.GetSource(2);
+
+                    Debug.Assert(comp.Kind == OperandKind.Constant);
+
+                    var compType = (Comparison)comp.AsInt32();
+
+                    return compType == Comparison.Equal || compType == Comparison.NotEqual;
+                }
             }
 
             return false;
