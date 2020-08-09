@@ -65,7 +65,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
                 control.UserAccountSaveDataSize        = 0x4000;
                 control.UserAccountSaveDataJournalSize = 0x4000;
 
-                Logger.Warning?.Print(LogClass.ServiceAm,
+                Logger.PrintWarning(LogClass.ServiceAm,
                     "No control file was found for this game. Using a dummy one instead. This may cause inaccuracies in some games.");
             }
 
@@ -93,7 +93,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
 
             if (firstSupported > (int)SystemState.TitleLanguage.Chinese)
             {
-                Logger.Warning?.Print(LogClass.ServiceAm, "Application has zero supported languages");
+                Logger.PrintWarning(LogClass.ServiceAm, "Application has zero supported languages");
 
                 context.ResponseData.Write(desiredLanguageCode);
 
@@ -107,7 +107,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
                 SystemLanguage newLanguage = Enum.Parse<SystemLanguage>(Enum.GetName(typeof(SystemState.TitleLanguage), firstSupported));
                 desiredLanguageCode = SystemStateMgr.GetLanguageCode((int)newLanguage);
 
-                Logger.Info?.Print(LogClass.ServiceAm, $"Application doesn't support configured language. Using {newLanguage}");
+                Logger.PrintInfo(LogClass.ServiceAm, $"Application doesn't support configured language. Using {newLanguage}");
             }
 
             context.ResponseData.Write(desiredLanguageCode);
@@ -121,7 +121,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         {
             Result result = new Result(context.RequestData.ReadUInt32());
 
-            Logger.Info?.Print(LogClass.ServiceAm, $"Result = 0x{result.Value:x8} ({result.ToStringWithName()}).");
+            Logger.PrintInfo(LogClass.ServiceAm, $"Result = 0x{result.Value:x8} ({result.ToStringWithName()}).");
 
             return ResultCode.Success;
         }
@@ -149,7 +149,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             // TODO: We return a size of 2GB as we use a directory based save system. This should be enough for most of the games.
             context.ResponseData.Write(2000000000u);
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { saveDataType, userId });
+            Logger.PrintStub(LogClass.ServiceAm, new { saveDataType, userId });
 
             return ResultCode.Success;
         }
@@ -158,7 +158,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         // NotifyRunning() -> b8
         public ResultCode NotifyRunning(ServiceCtx context)
         {
-            context.ResponseData.Write(true);
+            context.ResponseData.Write(1);
 
             return ResultCode.Success;
         }
@@ -170,7 +170,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             context.ResponseData.Write(0L);
             context.ResponseData.Write(0L);
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm);
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -179,7 +179,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         // InitializeGamePlayRecording(u64, handle<copy>)
         public ResultCode InitializeGamePlayRecording(ServiceCtx context)
         {
-            Logger.Stub?.PrintStub(LogClass.ServiceAm);
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -190,18 +190,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         {
             int state = context.RequestData.ReadInt32();
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { state });
-
-            return ResultCode.Success;
-        }
-
-        [Command(90)] // 4.0.0+
-        // EnableApplicationCrashReport(u8)
-        public ResultCode EnableApplicationCrashReport(ServiceCtx context)
-        {
-            bool applicationCrashReportEnabled = context.RequestData.ReadBoolean();
-
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { applicationCrashReportEnabled });
+            Logger.PrintStub(LogClass.ServiceAm, new { state });
 
             return ResultCode.Success;
         }
@@ -246,7 +235,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             {
                 // TODO: Initialize buffer and object.
 
-                Logger.Stub?.PrintStub(LogClass.ServiceAm, new { transferMemoryAddress, transferMemorySize, width, height });
+                Logger.PrintStub(LogClass.ServiceAm, new { transferMemoryAddress, transferMemorySize, width, height });
 
                 resultCode = ResultCode.Success;
             }
@@ -282,7 +271,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
                 }
             }
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { frameBufferPos, frameBufferSize, x, y, width, height, windowOriginMode });
+            Logger.PrintStub(LogClass.ServiceAm, new { frameBufferPos, frameBufferSize, x, y, width, height, windowOriginMode });
 
             return resultCode;
         }
@@ -296,7 +285,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
             }
             */
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { x, y, width, height, frameBufferPos, frameBufferSize, windowOriginMode });
+            Logger.PrintStub(LogClass.ServiceAm, new { x, y, width, height, frameBufferPos, frameBufferSize, windowOriginMode });
 
             return ResultCode.Success;
         }
@@ -307,7 +296,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         {
             bool visible = context.RequestData.ReadBoolean();
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { visible });
+            Logger.PrintStub(LogClass.ServiceAm, new { visible });
 
             // NOTE: It sets an internal field and return ResultCode.Success in all case.
 
@@ -328,22 +317,6 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletOE.ApplicationProxyService.Applicati
         {
             // TODO: Call pdm:qry cmd 16 when IPC call between services will be implemented.
             return (ResultCode)QueryPlayStatisticsManager.GetPlayStatistics(context, true);
-        }
-
-        [Command(123)] // 5.0.0+
-        // GetPreviousProgramIndex() -> s32 program_index
-        public ResultCode GetPreviousProgramIndex(ServiceCtx context)
-        {
-            // TODO: The output PreviousProgramIndex is -1 when there was no previous title.
-            //       When multi-process will be supported, return the last program index.
-
-            int previousProgramIndex = -1;
-
-            context.ResponseData.Write(previousProgramIndex);
-
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { previousProgramIndex });
-
-            return ResultCode.Success;
         }
 
         [Command(130)] // 8.0.0+

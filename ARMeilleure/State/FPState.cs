@@ -1,5 +1,10 @@
-﻿namespace ARMeilleure.State
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ARMeilleure.State
 {
+    [Flags]
     public enum FPState
     {
         VFlag = 28,

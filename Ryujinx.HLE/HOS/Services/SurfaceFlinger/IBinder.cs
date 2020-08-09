@@ -22,7 +22,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             if (!InterfaceToken.Equals(inputInterfaceToken))
             {
-                Logger.Error?.Print(LogClass.SurfaceFlinger, $"Invalid interface token {inputInterfaceToken} (expected: {InterfaceToken}");
+                Logger.PrintError(LogClass.SurfaceFlinger, $"Invalid interface token {inputInterfaceToken} (expected: {InterfaceToken}");
 
                 return ResultCode.Success;
             }

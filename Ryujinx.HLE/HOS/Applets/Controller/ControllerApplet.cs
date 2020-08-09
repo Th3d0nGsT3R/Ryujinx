@@ -32,7 +32,7 @@ namespace Ryujinx.HLE.HOS.Applets
             byte[] controllerSupportArgPrivate = _normalSession.Pop();
             ControllerSupportArgPrivate privateArg = IApplet.ReadStruct<ControllerSupportArgPrivate>(controllerSupportArgPrivate);
 
-            Logger.Stub?.PrintStub(LogClass.ServiceHid, $"ControllerApplet ArgPriv {privateArg.PrivateSize} {privateArg.ArgSize} {privateArg.Mode}" +
+            Logger.PrintStub(LogClass.ServiceHid, $"ControllerApplet ArgPriv {privateArg.PrivateSize} {privateArg.ArgSize} {privateArg.Mode}" +
                         $"HoldType:{(NpadJoyHoldType)privateArg.NpadJoyHoldType} StyleSets:{(ControllerType)privateArg.NpadStyleSet}");
 
             if (privateArg.Mode != ControllerSupportMode.ShowControllerSupport)
@@ -55,19 +55,19 @@ namespace Ryujinx.HLE.HOS.Applets
             }
             else
             {
-                Logger.Stub?.PrintStub(LogClass.ServiceHid, $"Unknown revision of ControllerSupportArg.");
+                Logger.PrintStub(LogClass.ServiceHid, $"Unknown revision of ControllerSupportArg.");
 
                 argHeader = IApplet.ReadStruct<ControllerSupportArgHeader>(controllerSupportArg); // Read just the header
             }
 
-            Logger.Stub?.PrintStub(LogClass.ServiceHid, $"ControllerApplet Arg {argHeader.PlayerCountMin} {argHeader.PlayerCountMax} {argHeader.EnableTakeOverConnection} {argHeader.EnableSingleMode}");
+            Logger.PrintStub(LogClass.ServiceHid, $"ControllerApplet Arg {argHeader.PlayerCountMin} {argHeader.PlayerCountMax} {argHeader.EnableTakeOverConnection} {argHeader.EnableSingleMode}");
 
             // Currently, the only purpose of this applet is to help 
             // choose the primary input controller for the game
             // TODO: Ideally should hook back to HID.Controller. When applet is called, can choose appropriate controller and attach to appropriate id.
             if (argHeader.PlayerCountMin > 1)
             {
-                Logger.Warning?.Print(LogClass.ServiceHid, "More than one controller was requested.");
+                Logger.PrintWarning(LogClass.ServiceHid, "More than one controller was requested.");
             }
 
             ControllerSupportResultInfo result = new ControllerSupportResultInfo
@@ -76,7 +76,7 @@ namespace Ryujinx.HLE.HOS.Applets
                 SelectedId = (uint)GetNpadIdTypeFromIndex(_system.Device.Hid.Npads.PrimaryController)
             };
 
-            Logger.Stub?.PrintStub(LogClass.ServiceHid, $"ControllerApplet ReturnResult {result.PlayerCount} {result.SelectedId}");
+            Logger.PrintStub(LogClass.ServiceHid, $"ControllerApplet ReturnResult {result.PlayerCount} {result.SelectedId}");
 
             _normalSession.Push(BuildResponse(result));
             AppletStateChanged?.Invoke(this, null);

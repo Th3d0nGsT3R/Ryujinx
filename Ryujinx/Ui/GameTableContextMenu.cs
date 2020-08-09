@@ -184,7 +184,7 @@ namespace Ryujinx.Ui
                     control.UserAccountSaveDataSize        = 0x4000;
                     control.UserAccountSaveDataJournalSize = 0x4000;
 
-                    Logger.Warning?.Print(LogClass.Application,
+                    Logger.PrintWarning(LogClass.Application,
                         "No control file was found for this game. Using a dummy one instead. This may cause inaccuracies in some games.");
                 }
 
@@ -328,7 +328,7 @@ namespace Ryujinx.Ui
 
                         if (mainNca == null)
                         {
-                            Logger.Error?.Print(LogClass.Application, "Extraction failed. The main NCA was not present in the selected file.");
+                            Logger.PrintError(LogClass.Application, "Extraction failed. The main NCA was not present in the selected file.");
 
                             Gtk.Application.Invoke(delegate
                             {
@@ -389,7 +389,7 @@ namespace Ryujinx.Ui
                         {
                             if (resultCode.Value.IsFailure())
                             {
-                                Logger.Error?.Print(LogClass.Application, $"LibHac returned error code: {resultCode.Value.ErrorCode}");
+                                Logger.PrintError(LogClass.Application, $"LibHac returned error code: {resultCode.Value.ErrorCode}");
 
                                 Gtk.Application.Invoke(delegate
                                 {

@@ -1,6 +1,5 @@
 using ARMeilleure.State;
 using Ryujinx.Common;
-using Ryujinx.Common.Logging;
 using Ryujinx.Cpu;
 using Ryujinx.HLE.Exceptions;
 using Ryujinx.HLE.HOS.Kernel.Common;
@@ -545,7 +544,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
 
         private KernelResult FreeTlsPage(KTlsPageInfo pageInfo)
         {
-            if (!MemoryManager.TryConvertVaToPa(pageInfo.PageAddr, out ulong tlsPagePa))
+            if (!MemoryManager.ConvertVaToPa(pageInfo.PageAddr, out ulong tlsPagePa))
             {
                 throw new InvalidOperationException("Unexpected failure translating virtual address to physical.");
             }
@@ -1072,6 +1071,18 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             return result;
         }
 
+        public void StopAllThreads()
+        {
+            lock (_threadingLock)
+            {
+                foreach (KThread thread in _threads)
+                {
+                    KernelContext.Scheduler.ExitThread(thread);
+                    KernelContext.Scheduler.CoreManager.Set(thread.HostThread);
+                }
+            }
+        }
+
         private void InitializeMemoryManager(AddressSpaceType addrSpaceType, MemoryRegion memRegion)
         {
             int addrSpaceBits = addrSpaceType switch
@@ -1083,7 +1094,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
                 _ => throw new ArgumentException(nameof(addrSpaceType))
             };
 
-            CpuMemory = new MemoryManager(KernelContext.Memory, 1UL << addrSpaceBits, InvalidAccessHandler);
+            CpuMemory = new MemoryManager(KernelContext.Memory, 1UL << addrSpaceBits);
             CpuContext = new CpuContext(CpuMemory);
 
             // TODO: This should eventually be removed.
@@ -1093,19 +1104,13 @@ namespace Ryujinx.HLE.HOS.Kernel.Process
             MemoryManager = new KMemoryManager(KernelContext, CpuMemory);
         }
 
-        private bool InvalidAccessHandler(ulong va)
+        public void PrintCurrentThreadStackTrace()
         {
-            KernelContext.Scheduler.GetCurrentThreadOrNull()?.PrintGuestStackTrace();
-
-            Logger.Error?.Print(LogClass.Cpu, $"Invalid memory access at virtual address 0x{va:X16}.");
-
-            return false;
+            KernelContext.Scheduler.GetCurrentThread().PrintGuestStackTrace();
         }
 
         private void UndefinedInstructionHandler(object sender, InstUndefinedEventArgs e)
         {
-            KernelContext.Scheduler.GetCurrentThreadOrNull()?.PrintGuestStackTrace();
-
             throw new UndefinedInstructionException(e.Address, e.OpCode);
         }
 

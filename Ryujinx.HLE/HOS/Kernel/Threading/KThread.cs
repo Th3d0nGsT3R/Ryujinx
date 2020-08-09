@@ -12,8 +12,6 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
 {
     class KThread : KSynchronizationObject, IKFutureSchedulerObject
     {
-        public const int MaxWaitSyncObjects = 64;
-
         private int _hostThreadRunning;
 
         public Thread HostThread { get; private set; }
@@ -40,9 +38,6 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
 
         public ulong TlsAddress => _tlsAddress;
         public ulong TlsDramAddress { get; private set; }
-
-        public KSynchronizationObject[] WaitSyncObjects { get; }
-        public int[] WaitSyncHandles { get; }
 
         public long LastScheduledTime { get; set; }
 
@@ -100,9 +95,6 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
         {
             _scheduler      = KernelContext.Scheduler;
             _schedulingData = KernelContext.Scheduler.SchedulingData;
-
-            WaitSyncObjects = new KSynchronizationObject[MaxWaitSyncObjects];
-            WaitSyncHandles = new int[MaxWaitSyncObjects];
 
             SiblingsPerCore = new LinkedListNode<KThread>[KScheduler.CpuCoresCount];
 
@@ -1131,7 +1123,12 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
 
         public void PrintGuestStackTrace()
         {
-            Logger.Info?.Print(LogClass.Cpu, $"Guest stack trace:\n{GetGuestStackTrace()}\n");
+            StringBuilder trace = new StringBuilder();
+
+            trace.AppendLine("Guest stack trace:");
+            trace.AppendLine(GetGuestStackTrace());
+
+            Logger.PrintInfo(LogClass.Cpu, trace.ToString());
         }
 
         public void Execute()

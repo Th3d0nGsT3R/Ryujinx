@@ -538,12 +538,9 @@ namespace ARMeilleure.Instructions
 
                     context.BranchIfFalse(lblNaN, isOrdered);
 
-                    Operand nCopy = context.Copy(n);
-                    Operand mCopy = cmpWithZero ? context.VectorZero() : context.Copy(m);
-
-                    Operand cf = context.AddIntrinsicInt(Intrinsic.X86Comissge, nCopy, mCopy);
-                    Operand zf = context.AddIntrinsicInt(Intrinsic.X86Comisseq, nCopy, mCopy);
-                    Operand nf = context.AddIntrinsicInt(Intrinsic.X86Comisslt, nCopy, mCopy);
+                    Operand cf = context.AddIntrinsicInt(Intrinsic.X86Comissge, n, m);
+                    Operand zf = context.AddIntrinsicInt(Intrinsic.X86Comisseq, n, m);
+                    Operand nf = context.AddIntrinsicInt(Intrinsic.X86Comisslt, n, m);
 
                     SetFlag(context, PState.VFlag, Const(0));
                     SetFlag(context, PState.CFlag, cf);
@@ -558,12 +555,9 @@ namespace ARMeilleure.Instructions
 
                     context.BranchIfFalse(lblNaN, isOrdered);
 
-                    Operand nCopy = context.Copy(n);
-                    Operand mCopy = cmpWithZero ? context.VectorZero() : context.Copy(m);
-
-                    Operand cf = context.AddIntrinsicInt(Intrinsic.X86Comisdge, nCopy, mCopy);
-                    Operand zf = context.AddIntrinsicInt(Intrinsic.X86Comisdeq, nCopy, mCopy);
-                    Operand nf = context.AddIntrinsicInt(Intrinsic.X86Comisdlt, nCopy, mCopy);
+                    Operand cf = context.AddIntrinsicInt(Intrinsic.X86Comisdge, n, m);
+                    Operand zf = context.AddIntrinsicInt(Intrinsic.X86Comisdeq, n, m);
+                    Operand nf = context.AddIntrinsicInt(Intrinsic.X86Comisdlt, n, m);
 
                     SetFlag(context, PState.VFlag, Const(0));
                     SetFlag(context, PState.CFlag, cf);

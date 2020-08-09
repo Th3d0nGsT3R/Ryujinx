@@ -69,8 +69,6 @@ namespace Ryujinx.HLE.HOS
 
             Npdm metaData = ReadNpdm(codeFs);
 
-            _fileSystem.ModLoader.CollectMods(TitleId, _fileSystem.GetBaseModsPath());
-
             if (TitleId != 0)
             {
                 EnsureSaveData(new TitleId(TitleId));
@@ -123,7 +121,7 @@ namespace Ryujinx.HLE.HOS
 
             if (!xci.HasPartition(XciPartitionType.Secure))
             {
-                Logger.Error?.Print(LogClass.Loader, "Unable to load XCI: Could not find XCI secure partition");
+                Logger.PrintError(LogClass.Loader, "Unable to load XCI: Could not find XCI secure partition");
 
                 return;
             }
@@ -140,14 +138,14 @@ namespace Ryujinx.HLE.HOS
             }
             catch (Exception e)
             {
-                Logger.Error?.Print(LogClass.Loader, $"Unable to load XCI: {e.Message}");
+                Logger.PrintError(LogClass.Loader, $"Unable to load XCI: {e.Message}");
 
                 return;
             }
 
             if (mainNca == null)
             {
-                Logger.Error?.Print(LogClass.Loader, "Unable to load XCI: Could not find Main NCA");
+                Logger.PrintError(LogClass.Loader, "Unable to load XCI: Could not find Main NCA");
 
                 return;
             }
@@ -176,14 +174,14 @@ namespace Ryujinx.HLE.HOS
             }
             catch (Exception e)
             {
-                Logger.Error?.Print(LogClass.Loader, $"Unable to load NSP: {e.Message}");
+                Logger.PrintError(LogClass.Loader, $"Unable to load NSP: {e.Message}");
 
                 return;
             }
 
             if (mainNca == null)
             {
-                Logger.Error?.Print(LogClass.Loader, "Unable to load NSP: Could not find Main NCA");
+                Logger.PrintError(LogClass.Loader, "Unable to load NSP: Could not find Main NCA");
 
                 return;
             }
@@ -215,7 +213,7 @@ namespace Ryujinx.HLE.HOS
         {
             if (mainNca.Header.ContentType != NcaContentType.Program)
             {
-                Logger.Error?.Print(LogClass.Loader, "Selected NCA is not a \"Program\" NCA");
+                Logger.PrintError(LogClass.Loader, "Selected NCA is not a \"Program\" NCA");
 
                 return;
             }
@@ -303,7 +301,7 @@ namespace Ryujinx.HLE.HOS
 
             if (codeFs == null)
             {
-                Logger.Error?.Print(LogClass.Loader, "No ExeFS found in NCA");
+                Logger.PrintError(LogClass.Loader, "No ExeFS found in NCA");
 
                 return;
             }
@@ -323,7 +321,7 @@ namespace Ryujinx.HLE.HOS
 
             if (dataStorage == null)
             {
-                Logger.Warning?.Print(LogClass.Loader, "No RomFS found in NCA");
+                Logger.PrintWarning(LogClass.Loader, "No RomFS found in NCA");
             }
             else
             {
@@ -338,7 +336,7 @@ namespace Ryujinx.HLE.HOS
 
             LoadExeFs(codeFs, metaData);
 
-            Logger.Info?.Print(LogClass.Loader, $"Application Loaded: {TitleName} v{DisplayVersion} [{TitleIdText}] [{(TitleIs64Bit ? "64-bit" : "32-bit")}]");
+            Logger.PrintInfo(LogClass.Loader, $"Application Loaded: {TitleName} v{DisplayVersion} [{TitleIdText}] [{(TitleIs64Bit ? "64-bit" : "32-bit")}]");
         }
 
         // Sets TitleId, so be sure to call before using it
@@ -349,7 +347,7 @@ namespace Ryujinx.HLE.HOS
 
             if (ResultFs.PathNotFound.Includes(result))
             {
-                Logger.Warning?.Print(LogClass.Loader, "NPDM file not found, using default values!");
+                Logger.PrintWarning(LogClass.Loader, "NPDM file not found, using default values!");
 
                 metaData = GetDefaultNpdm();
             }
@@ -414,7 +412,7 @@ namespace Ryujinx.HLE.HOS
                         continue;
                     }
 
-                    Logger.Info?.Print(LogClass.Loader, $"Loading {file.Name}...");
+                    Logger.PrintInfo(LogClass.Loader, $"Loading {file.Name}...");
 
                     codeFs.OpenFile(out IFile nsoFile, file.FullPath.ToU8Span(), OpenMode.Read).ThrowIfFailure();
 
@@ -435,7 +433,7 @@ namespace Ryujinx.HLE.HOS
 
             if (EnablePtc && modified)
             {
-                Logger.Warning?.Print(LogClass.Ptc, $"Detected exefs modifications. PPTC disabled.");
+                Logger.PrintWarning(LogClass.Ptc, $"Detected exefs modifications. PPTC disabled.");
             }
 
             Ptc.Initialize(TitleIdText, DisplayVersion, EnablePtc && !modified);
@@ -520,7 +518,7 @@ namespace Ryujinx.HLE.HOS
                         }
                         else
                         {
-                            Logger.Warning?.Print(LogClass.Loader, $"Unsupported ASET header version found \"{asetVersion}\"");
+                            Logger.PrintWarning(LogClass.Loader, $"Unsupported ASET header version found \"{asetVersion}\"");
                         }
                     }
                 }
@@ -551,7 +549,7 @@ namespace Ryujinx.HLE.HOS
 
         private Result EnsureSaveData(TitleId titleId)
         {
-            Logger.Info?.Print(LogClass.Application, "Ensuring required savedata exists.");
+            Logger.PrintInfo(LogClass.Application, "Ensuring required savedata exists.");
 
             Uid user = _device.System.State.Account.LastOpenedUser.UserId.ToLibHacUid();
 
@@ -567,7 +565,7 @@ namespace Ryujinx.HLE.HOS
                 control.UserAccountSaveDataSize = 0x4000;
                 control.UserAccountSaveDataJournalSize = 0x4000;
 
-                Logger.Warning?.Print(LogClass.Application,
+                Logger.PrintWarning(LogClass.Application,
                     "No control file was found for this game. Using a dummy one instead. This may cause inaccuracies in some games.");
             }
 
@@ -577,7 +575,7 @@ namespace Ryujinx.HLE.HOS
 
             if (rc.IsFailure())
             {
-                Logger.Error?.Print(LogClass.Application, $"Error calling EnsureApplicationCacheStorage. Result code {rc.ToStringWithName()}");
+                Logger.PrintError(LogClass.Application, $"Error calling EnsureApplicationCacheStorage. Result code {rc.ToStringWithName()}");
 
                 return rc;
             }
@@ -586,7 +584,7 @@ namespace Ryujinx.HLE.HOS
 
             if (rc.IsFailure())
             {
-                Logger.Error?.Print(LogClass.Application, $"Error calling EnsureApplicationSaveData. Result code {rc.ToStringWithName()}");
+                Logger.PrintError(LogClass.Application, $"Error calling EnsureApplicationSaveData. Result code {rc.ToStringWithName()}");
             }
 
             return rc;

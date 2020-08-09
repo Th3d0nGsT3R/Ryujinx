@@ -72,15 +72,6 @@ namespace Ryujinx.Graphics.OpenGL.Image
                 (int)Info.SwizzleA.Convert()
             };
 
-            if (Info.Format.IsBgra8())
-            {
-                // Swap B <-> R for BGRA formats, as OpenGL has no support for them
-                // and we need to manually swap the components on read/write on the GPU.
-                int temp = swizzleRgba[0];
-                swizzleRgba[0] = swizzleRgba[2];
-                swizzleRgba[2] = temp;
-            }
-
             GL.TexParameter(target, TextureParameterName.TextureSwizzleRgba, swizzleRgba);
 
             int maxLevel = Info.Levels - 1;
@@ -198,26 +189,13 @@ namespace Ryujinx.Graphics.OpenGL.Image
             return data;
         }
 
-        public void WriteToPbo(int offset, bool forceBgra)
-        {
-            WriteTo(IntPtr.Zero + offset, forceBgra);
-        }
-
-        private void WriteTo(IntPtr data, bool forceBgra = false)
+        private void WriteTo(IntPtr ptr)
         {
             TextureTarget target = Target.Convert();
 
             Bind(target, 0);
 
             FormatInfo format = FormatTable.GetFormatInfo(Info.Format);
-
-            PixelFormat pixelFormat = format.PixelFormat;
-            PixelType   pixelType   = format.PixelType;
-
-            if (forceBgra)
-            {
-                pixelFormat = PixelFormat.Bgra;
-            }
 
             int faces = 1;
 
@@ -236,15 +214,20 @@ namespace Ryujinx.Graphics.OpenGL.Image
 
                     if (format.IsCompressed)
                     {
-                        GL.GetCompressedTexImage(target + face, level, data + faceOffset);
+                        GL.GetCompressedTexImage(target + face, level, ptr + faceOffset);
                     }
                     else
                     {
-                        GL.GetTexImage(target + face, level, pixelFormat, pixelType, data + faceOffset);
+                        GL.GetTexImage(
+                            target + face,
+                            level,
+                            format.PixelFormat,
+                            format.PixelType,
+                            ptr + faceOffset);
                     }
                 }
 
-                data += Info.GetMipSize(level);
+                ptr += Info.GetMipSize(level);
             }
         }
 
@@ -254,17 +237,12 @@ namespace Ryujinx.Graphics.OpenGL.Image
             {
                 fixed (byte* ptr = data)
                 {
-                    ReadFrom((IntPtr)ptr, data.Length);
+                    SetData((IntPtr)ptr, data.Length);
                 }
             }
         }
 
-        public void ReadFromPbo(int offset, int size)
-        {
-            ReadFrom(IntPtr.Zero + offset, size);
-        }
-
-        private void ReadFrom(IntPtr data, int size)
+        private void SetData(IntPtr data, int size)
         {
             TextureTarget target = Target.Convert();
 

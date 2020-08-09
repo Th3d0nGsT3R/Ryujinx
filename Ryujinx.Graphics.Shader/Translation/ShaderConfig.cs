@@ -1,6 +1,8 @@
+using System;
+
 namespace Ryujinx.Graphics.Shader.Translation
 {
-    class ShaderConfig
+    struct ShaderConfig
     {
         public ShaderStage Stage { get; }
 
@@ -20,9 +22,7 @@ namespace Ryujinx.Graphics.Shader.Translation
 
         public TranslationFlags Flags { get; }
 
-        public int Size { get; private set; }
-
-        public FeatureFlags UsedFeatures { get; private set; }
+        public FeatureFlags UsedFeatures { get; set; }
 
         public ShaderConfig(IGpuAccessor gpuAccessor, TranslationFlags flags)
         {
@@ -36,7 +36,6 @@ namespace Ryujinx.Graphics.Shader.Translation
             OmapDepth         = false;
             GpuAccessor       = gpuAccessor;
             Flags             = flags;
-            Size              = 0;
             UsedFeatures      = FeatureFlags.None;
         }
 
@@ -52,7 +51,6 @@ namespace Ryujinx.Graphics.Shader.Translation
             OmapDepth         = header.OmapDepth;
             GpuAccessor       = gpuAccessor;
             Flags             = flags;
-            Size              = 0;
             UsedFeatures      = FeatureFlags.None;
         }
 
@@ -94,16 +92,6 @@ namespace Ryujinx.Graphics.Shader.Translation
             }
 
             return format;
-        }
-
-        public void SizeAdd(int size)
-        {
-            Size += size;
-        }
-
-        public void SetUsedFeature(FeatureFlags flags)
-        {
-            UsedFeatures |= flags;
         }
     }
 }

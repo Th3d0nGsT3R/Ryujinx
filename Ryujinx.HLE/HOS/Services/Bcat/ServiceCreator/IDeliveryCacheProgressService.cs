@@ -27,9 +27,9 @@ namespace Ryujinx.HLE.HOS.Services.Bcat.ServiceCreator
                 throw new InvalidOperationException("Out of handles!");
             }
 
-            context.Response.HandleDesc = IpcHandleDesc.MakeCopy(handle);
+            context.Response.HandleDesc = IpcHandleDesc.MakeMove(handle);
 
-            Logger.Stub?.PrintStub(LogClass.ServiceBcat);
+            Logger.PrintStub(LogClass.ServiceBcat);
 
             return ResultCode.Success;
         }
@@ -46,7 +46,7 @@ namespace Ryujinx.HLE.HOS.Services.Bcat.ServiceCreator
 
             WriteDeliveryCacheProgressImpl(context, context.Request.RecvListBuff[0], deliveryCacheProgress);
 
-            Logger.Stub?.PrintStub(LogClass.ServiceBcat);
+            Logger.PrintStub(LogClass.ServiceBcat);
 
             return ResultCode.Success;
         }

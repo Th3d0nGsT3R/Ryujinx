@@ -3,29 +3,38 @@ using ARMeilleure.State;
 using ARMeilleure.Translation;
 using System;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 namespace ARMeilleure.Instructions
 {
     static class NativeInterface
     {
+        private const int ErgSizeLog2 = 4;
+
         private class ThreadContext
         {
-            public ExecutionContext Context { get; }
+            public State.ExecutionContext Context { get; }
             public IMemoryManager Memory { get; }
             public Translator Translator { get; }
 
-            public ThreadContext(ExecutionContext context, IMemoryManager memory, Translator translator)
+            public ulong ExclusiveAddress { get; set; }
+            public ulong ExclusiveValueLow { get; set; }
+            public ulong ExclusiveValueHigh { get; set; }
+
+            public ThreadContext(State.ExecutionContext context, IMemoryManager memory, Translator translator)
             {
                 Context = context;
                 Memory = memory;
                 Translator = translator;
+
+                ExclusiveAddress = ulong.MaxValue;
             }
         }
 
         [ThreadStatic]
         private static ThreadContext _context;
 
-        public static void RegisterThread(ExecutionContext context, IMemoryManager memory, Translator translator)
+        public static void RegisterThread(State.ExecutionContext context, IMemoryManager memory, Translator translator)
         {
             _context = new ThreadContext(context, memory, translator);
         }
@@ -87,8 +96,14 @@ namespace ARMeilleure.Instructions
         {
             var context = GetContext();
 
-            return (uint)(context.Fpsr & FPSR.A32Mask & ~FPSR.Nzcv) |
-                   (uint)(context.Fpcr & FPCR.A32Mask);
+            uint result = (uint)(context.Fpsr & FPSR.A32Mask) | (uint)(context.Fpcr & FPCR.A32Mask);
+
+            result |= context.GetFPstateFlag(FPState.NFlag) ? (1u << 31) : 0;
+            result |= context.GetFPstateFlag(FPState.ZFlag) ? (1u << 30) : 0;
+            result |= context.GetFPstateFlag(FPState.CFlag) ? (1u << 29) : 0;
+            result |= context.GetFPstateFlag(FPState.VFlag) ? (1u << 28) : 0;
+
+            return result;
         }
 
         public static ulong GetTpidrEl0()
@@ -136,17 +151,17 @@ namespace ARMeilleure.Instructions
             GetContext().Fpsr = (FPSR)value;
         }
 
-        public static void SetFpsrQc()
-        {
-            GetContext().Fpsr |= FPSR.Qc;
-        }
-
-        public static void SetFpscr(uint fpscr)
+        public static void SetFpscr(uint value)
         {
             var context = GetContext();
 
-            context.Fpsr = FPSR.A32Mask & (FPSR)fpscr;
-            context.Fpcr = FPCR.A32Mask & (FPCR)fpscr;
+            context.SetFPstateFlag(FPState.NFlag, (value & (1u << 31)) != 0);
+            context.SetFPstateFlag(FPState.ZFlag, (value & (1u << 30)) != 0);
+            context.SetFPstateFlag(FPState.CFlag, (value & (1u << 29)) != 0);
+            context.SetFPstateFlag(FPState.VFlag, (value & (1u << 28)) != 0);
+
+            context.Fpsr = FPSR.A32Mask & (FPSR)value;
+            context.Fpcr = FPCR.A32Mask & (FPCR)value;
         }
 
         public static void SetTpidrEl0(ulong value)
@@ -187,6 +202,63 @@ namespace ARMeilleure.Instructions
         }
         #endregion
 
+        #region "Read exclusive"
+        public static byte ReadByteExclusive(ulong address)
+        {
+            byte value = _context.Memory.Read<byte>(address);
+
+            _context.ExclusiveAddress = GetMaskedExclusiveAddress(address);
+            _context.ExclusiveValueLow = value;
+            _context.ExclusiveValueHigh = 0;
+
+            return value;
+        }
+
+        public static ushort ReadUInt16Exclusive(ulong address)
+        {
+            ushort value = _context.Memory.Read<ushort>(address);
+
+            _context.ExclusiveAddress = GetMaskedExclusiveAddress(address);
+            _context.ExclusiveValueLow = value;
+            _context.ExclusiveValueHigh = 0;
+
+            return value;
+        }
+
+        public static uint ReadUInt32Exclusive(ulong address)
+        {
+            uint value = _context.Memory.Read<uint>(address);
+
+            _context.ExclusiveAddress = GetMaskedExclusiveAddress(address);
+            _context.ExclusiveValueLow = value;
+            _context.ExclusiveValueHigh = 0;
+
+            return value;
+        }
+
+        public static ulong ReadUInt64Exclusive(ulong address)
+        {
+            ulong value = _context.Memory.Read<ulong>(address);
+
+            _context.ExclusiveAddress = GetMaskedExclusiveAddress(address);
+            _context.ExclusiveValueLow = value;
+            _context.ExclusiveValueHigh = 0;
+
+            return value;
+        }
+
+        public static V128 ReadVector128Exclusive(ulong address)
+        {
+            V128 value = MemoryManagerPal.AtomicLoad128(ref _context.Memory.GetRef<V128>(address));
+
+            _context.ExclusiveAddress = GetMaskedExclusiveAddress(address);
+            _context.ExclusiveValueLow = value.Extract<ulong>(0);
+            _context.ExclusiveValueHigh = value.Extract<ulong>(1);
+
+            return value;
+        }
+        #endregion
+
         #region "Write"
         public static void WriteByte(ulong address, byte value)
         {
@@ -214,14 +286,122 @@ namespace ARMeilleure.Instructions
         }
         #endregion
 
-        public static void MarkRegionAsModified(ulong address, ulong size)
+        #region "Write exclusive"
+        public static int WriteByteExclusive(ulong address, byte value)
         {
-            GetMemoryManager().MarkRegionAsModified(address, size);
+            bool success = _context.ExclusiveAddress == GetMaskedExclusiveAddress(address);
+
+            if (success)
+            {
+                ref int valueRef = ref _context.Memory.GetRefNoChecks<int>(address);
+
+                int currentValue = valueRef;
+
+                byte expected = (byte)_context.ExclusiveValueLow;
+
+                int expected32 = (currentValue & ~byte.MaxValue) | expected;
+                int desired32 = (currentValue & ~byte.MaxValue) | value;
+
+                success = Interlocked.CompareExchange(ref valueRef, desired32, expected32) == expected32;
+
+                if (success)
+                {
+                    ClearExclusive();
+                }
+            }
+
+            return success ? 0 : 1;
         }
 
-        public static void ThrowInvalidMemoryAccess(ulong address)
+        public static int WriteUInt16Exclusive(ulong address, ushort value)
         {
-            throw new InvalidAccessException(address);
+            bool success = _context.ExclusiveAddress == GetMaskedExclusiveAddress(address);
+
+            if (success)
+            {
+                ref int valueRef = ref _context.Memory.GetRefNoChecks<int>(address);
+
+                int currentValue = valueRef;
+
+                ushort expected = (ushort)_context.ExclusiveValueLow;
+
+                int expected32 = (currentValue & ~ushort.MaxValue) | expected;
+                int desired32 = (currentValue & ~ushort.MaxValue) | value;
+
+                success = Interlocked.CompareExchange(ref valueRef, desired32, expected32) == expected32;
+
+                if (success)
+                {
+                    ClearExclusive();
+                }
+            }
+
+            return success ? 0 : 1;
+        }
+
+        public static int WriteUInt32Exclusive(ulong address, uint value)
+        {
+            bool success = _context.ExclusiveAddress == GetMaskedExclusiveAddress(address);
+
+            if (success)
+            {
+                ref int valueRef = ref _context.Memory.GetRef<int>(address);
+
+                success = Interlocked.CompareExchange(ref valueRef, (int)value, (int)_context.ExclusiveValueLow) == (int)_context.ExclusiveValueLow;
+
+                if (success)
+                {
+                    ClearExclusive();
+                }
+            }
+
+            return success ? 0 : 1;
+        }
+
+        public static int WriteUInt64Exclusive(ulong address, ulong value)
+        {
+            bool success = _context.ExclusiveAddress == GetMaskedExclusiveAddress(address);
+
+            if (success)
+            {
+                ref long valueRef = ref _context.Memory.GetRef<long>(address);
+
+                success = Interlocked.CompareExchange(ref valueRef, (long)value, (long)_context.ExclusiveValueLow) == (long)_context.ExclusiveValueLow;
+
+                if (success)
+                {
+                    ClearExclusive();
+                }
+            }
+
+            return success ? 0 : 1;
+        }
+
+        public static int WriteVector128Exclusive(ulong address, V128 value)
+        {
+            bool success = _context.ExclusiveAddress == GetMaskedExclusiveAddress(address);
+
+            if (success)
+            {
+                V128 expected = new V128(_context.ExclusiveValueLow, _context.ExclusiveValueHigh);
+
+                ref V128 location = ref _context.Memory.GetRef<V128>(address);
+
+                success = MemoryManagerPal.CompareAndSwap128(ref location, expected, value) == expected;
+
+                if (success)
+                {
+                    ClearExclusive();
+                }
+            }
+
+            return success ? 0 : 1;
+        }
+        #endregion
+
+        private static ulong GetMaskedExclusiveAddress(ulong address)
+        {
+            return address & ~((4UL << ErgSizeLog2) - 1);
         }
 
         public static ulong GetFunctionAddress(ulong address)
@@ -246,6 +426,11 @@ namespace ARMeilleure.Instructions
             return ptr;
         }
 
+        public static void ClearExclusive()
+        {
+            _context.ExclusiveAddress = ulong.MaxValue;
+        }
+
         public static bool CheckSynchronization()
         {
             Statistics.PauseTimer();
@@ -259,7 +444,7 @@ namespace ARMeilleure.Instructions
             return context.Running;
         }
 
-        public static ExecutionContext GetContext()
+        public static State.ExecutionContext GetContext()
         {
             return _context.Context;
         }

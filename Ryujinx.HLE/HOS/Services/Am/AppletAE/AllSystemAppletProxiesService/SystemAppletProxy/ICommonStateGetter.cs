@@ -76,7 +76,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         {
             context.ResponseData.Write((byte)0); //Unknown value.
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm);
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -120,7 +120,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
 
             context.Response.HandleDesc = IpcHandleDesc.MakeCopy(handle);
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm);
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }

@@ -9,7 +9,6 @@ namespace ARMeilleure.CodeGen.X86
         Binary,
         BinaryGpr,
         BinaryImm,
-        Crc32,
         Ternary,
         TernaryImm
     }

@@ -8,7 +8,6 @@ namespace Ryujinx.Common.Logging
         Warning,
         Error,
         Guest,
-        AccessLog,
-        Notice
+        AccessLog
     }
 }

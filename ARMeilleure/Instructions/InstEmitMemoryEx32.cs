@@ -13,7 +13,7 @@ namespace ARMeilleure.Instructions
     {
         public static void Clrex(ArmEmitterContext context)
         {
-            EmitClearExclusive(context);
+            context.Call(typeof(NativeInterface).GetMethod(nameof(NativeInterface.ClearExclusive)));
         }
 
         public static void Dmb(ArmEmitterContext context) => EmitBarrier(context);
@@ -198,21 +198,34 @@ namespace ARMeilleure.Instructions
                     context.BranchIfTrue(lblBigEndian, GetFlag(PState.EFlag));
 
                     Operand leResult = context.BitwiseOr(lo, context.ShiftLeft(hi, Const(32)));
-                    EmitStoreExclusive(context, address, leResult, exclusive, size, op.Rd, a32: true);
+                    Operand leS = EmitStoreExclusive(context, address, leResult, exclusive, size);
+                    if (exclusive)
+                    {
+                        SetIntA32(context, op.Rd, leS);
+                    }
 
                     context.Branch(lblEnd);
 
                     context.MarkLabel(lblBigEndian);
 
                     Operand beResult = context.BitwiseOr(hi, context.ShiftLeft(lo, Const(32)));
-                    EmitStoreExclusive(context, address, beResult, exclusive, size, op.Rd, a32: true);
+                    Operand beS = EmitStoreExclusive(context, address, beResult, exclusive, size);
+                    if (exclusive)
+                    {
+                        SetIntA32(context, op.Rd, beS);
+                    }
 
                     context.MarkLabel(lblEnd);
                 }
                 else
                 {
-                    Operand value = context.ZeroExtend32(OperandType.I64, GetIntA32(context, op.Rt));
-                    EmitStoreExclusive(context, address, value, exclusive, size, op.Rd, a32: true);
+                    Operand s = EmitStoreExclusive(context, address, context.ZeroExtend32(OperandType.I64, GetIntA32(context, op.Rt)), exclusive, size);
+                    // This is only needed for exclusive stores. The function returns 0
+                    // when the store is successful, and 1 otherwise.
+                    if (exclusive)
+                    {
+                        SetIntA32(context, op.Rd, s);
+                    }
                 }
             }
         }

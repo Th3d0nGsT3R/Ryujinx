@@ -32,7 +32,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 {
                     bufferItem = null;
 
-                    Logger.Debug?.Print(LogClass.SurfaceFlinger, $"Max acquired buffer count reached: {numAcquiredBuffers} (max: {Core.MaxAcquiredBufferCount})");
+                    Logger.PrintDebug(LogClass.SurfaceFlinger, $"Max acquired buffer count reached: {numAcquiredBuffers} (max: {Core.MaxAcquiredBufferCount})");
 
                     return Status.InvalidOperation;
                 }
@@ -102,7 +102,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                 if (!Core.Slots[slot].RequestBufferCalled)
                 {
-                    Logger.Error?.Print(LogClass.SurfaceFlinger, $"Slot {slot} was detached without requesting a buffer");
+                    Logger.PrintError(LogClass.SurfaceFlinger, $"Slot {slot} was detached without requesting a buffer");
 
                     return Status.BadValue;
                 }
@@ -141,7 +141,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                 {
                     slot = BufferSlotArray.InvalidBufferSlot;
 
-                    Logger.Error?.Print(LogClass.SurfaceFlinger, $"Max acquired buffer count reached: {numAcquiredBuffers} (max: {Core.MaxAcquiredBufferCount})");
+                    Logger.PrintError(LogClass.SurfaceFlinger, $"Max acquired buffer count reached: {numAcquiredBuffers} (max: {Core.MaxAcquiredBufferCount})");
 
                     return Status.InvalidOperation;
                 }

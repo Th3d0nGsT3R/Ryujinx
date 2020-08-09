@@ -109,7 +109,7 @@ namespace Ryujinx.HLE.HOS.Services
 
                 if (serviceExists)
                 {
-                    Logger.Debug?.Print(LogClass.KernelIpc, $"{service.GetType().Name}: {processRequest.Name}");
+                    Logger.PrintDebug(LogClass.KernelIpc, $"{service.GetType().Name}: {processRequest.Name}");
 
                     ProfileConfig profile = Profiles.ServiceCall;
 
@@ -130,7 +130,7 @@ namespace Ryujinx.HLE.HOS.Services
 
                     serviceName = (dummyService == null) ? service.GetType().FullName : dummyService.ServiceName;
 
-                    Logger.Warning?.Print(LogClass.KernelIpc, $"Missing service {serviceName}: {commandId} ignored");
+                    Logger.PrintWarning(LogClass.KernelIpc, $"Missing service {serviceName}: {commandId} ignored");
                 }
 
                 if (_isDomain)
@@ -176,9 +176,6 @@ namespace Ryujinx.HLE.HOS.Services
                 {
                     throw new InvalidOperationException("Out of handles!");
                 }
-
-                session.ServerSession.DecrementReferenceCount();
-                session.ClientSession.DecrementReferenceCount();
 
                 context.Response.HandleDesc = IpcHandleDesc.MakeMove(handle);
             }

@@ -51,12 +51,10 @@ namespace Ryujinx.Graphics.OpenGL
             GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, drawFramebuffer);
             GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, readFramebuffer);
 
-            TextureView viewConverted = view.Format.IsBgra8() ? _renderer.TextureCopy.BgraSwap(view) : view;
-
             GL.FramebufferTexture(
                 FramebufferTarget.ReadFramebuffer,
                 FramebufferAttachment.ColorAttachment0,
-                viewConverted.Handle,
+                view.Handle,
                 0);
 
             GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
@@ -140,11 +138,6 @@ namespace Ryujinx.Graphics.OpenGL
 
             ((Pipeline)_renderer.Pipeline).RestoreScissor0Enable();
             ((Pipeline)_renderer.Pipeline).RestoreRasterizerDiscard();
-
-            if (viewConverted != view)
-            {
-                viewConverted.Dispose();
-            }
         }
 
         private int GetCopyFramebufferHandleLazy()

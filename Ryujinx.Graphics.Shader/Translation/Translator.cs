@@ -16,20 +16,24 @@ namespace Ryujinx.Graphics.Shader.Translation
 
         public static ShaderProgram Translate(ulong address, IGpuAccessor gpuAccessor, TranslationFlags flags)
         {
-            return Translate(DecodeShader(address, gpuAccessor, flags, out ShaderConfig config), config);
+            Operation[] ops = DecodeShader(address, gpuAccessor, flags, out ShaderConfig config, out int size, out FeatureFlags featureFlags);
+
+            config.UsedFeatures = featureFlags;
+
+            return Translate(ops, config, size);
         }
 
         public static ShaderProgram Translate(ulong addressA, ulong addressB, IGpuAccessor gpuAccessor, TranslationFlags flags)
         {
-            Operation[] opsA = DecodeShader(addressA, gpuAccessor, flags | TranslationFlags.VertexA, out ShaderConfig configA);
-            Operation[] opsB = DecodeShader(addressB, gpuAccessor, flags, out ShaderConfig config);
+            Operation[] opsA = DecodeShader(addressA, gpuAccessor, flags | TranslationFlags.VertexA, out _, out int sizeA, out FeatureFlags featureFlagsA);
+            Operation[] opsB = DecodeShader(addressB, gpuAccessor, flags, out ShaderConfig config, out int sizeB, out FeatureFlags featureFlagsB);
 
-            config.SetUsedFeature(configA.UsedFeatures);
+            config.UsedFeatures = featureFlagsA | featureFlagsB;
 
-            return Translate(Combine(opsA, opsB), config, configA.Size);
+            return Translate(Combine(opsA, opsB), config, sizeB, sizeA);
         }
 
-        private static ShaderProgram Translate(Operation[] ops, ShaderConfig config, int sizeA = 0)
+        private static ShaderProgram Translate(Operation[] ops, ShaderConfig config, int size, int sizeA = 0)
         {
             BasicBlock[] blocks = ControlFlowGraph.MakeCfg(ops);
 
@@ -59,10 +63,16 @@ namespace Ryujinx.Graphics.Shader.Translation
 
             string glslCode = program.Code;
 
-            return new ShaderProgram(spInfo, config.Stage, glslCode, config.Size, sizeA);
+            return new ShaderProgram(spInfo, config.Stage, glslCode, size, sizeA);
         }
 
-        private static Operation[] DecodeShader(ulong address, IGpuAccessor gpuAccessor, TranslationFlags flags, out ShaderConfig config)
+        private static Operation[] DecodeShader(
+            ulong            address,
+            IGpuAccessor     gpuAccessor,
+            TranslationFlags flags,
+            out ShaderConfig config,
+            out int          size,
+            out FeatureFlags featureFlags)
         {
             Block[] cfg;
 
@@ -82,6 +92,10 @@ namespace Ryujinx.Graphics.Shader.Translation
             if (cfg == null)
             {
                 gpuAccessor.Log("Invalid branch detected, failed to build CFG.");
+
+                size = 0;
+
+                featureFlags = FeatureFlags.None;
 
                 return Array.Empty<Operation>();
             }
@@ -183,7 +197,9 @@ namespace Ryujinx.Graphics.Shader.Translation
                 }
             }
 
-            config.SizeAdd((int)maxEndAddress + (flags.HasFlag(TranslationFlags.Compute) ? 0 : HeaderSize));
+            size = (int)maxEndAddress + (((flags & TranslationFlags.Compute) != 0) ? 0 : HeaderSize);
+
+            featureFlags = context.UsedFeatures;
 
             return context.GetOperations();
         }

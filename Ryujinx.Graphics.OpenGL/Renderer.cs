@@ -1,5 +1,4 @@
 ﻿using OpenTK.Graphics.OpenGL;
-using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Logging;
 using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.OpenGL.Image;
@@ -45,9 +44,9 @@ namespace Ryujinx.Graphics.OpenGL
             return Buffer.Create(size);
         }
 
-        public IProgram CreateProgram(IShader[] shaders, TransformFeedbackDescriptor[] transformFeedbackDescriptors)
+        public IProgram CreateProgram(IShader[] shaders)
         {
-            return new Program(shaders, transformFeedbackDescriptors);
+            return new Program(shaders);
         }
 
         public ISampler CreateSampler(SamplerCreateInfo info)
@@ -97,10 +96,8 @@ namespace Ryujinx.Graphics.OpenGL
             return _counters.QueueReport(type, resultHandler);
         }
 
-        public void Initialize(GraphicsDebugLevel glLogLevel)
+        public void Initialize()
         {
-            Debugger.Initialize(glLogLevel);
-
             PrintGpuInformation();
 
             _counters.Initialize();
@@ -112,7 +109,7 @@ namespace Ryujinx.Graphics.OpenGL
             GpuRenderer = GL.GetString(StringName.Renderer);
             GpuVersion  = GL.GetString(StringName.Version);
 
-            Logger.Notice.Print(LogClass.Gpu, $"{GpuVendor} {GpuRenderer} ({GpuVersion})");
+            Logger.PrintInfo(LogClass.Gpu, $"{GpuVendor} {GpuRenderer} ({GpuVersion})");
         }
 
         public void ResetCounter(CounterType type)

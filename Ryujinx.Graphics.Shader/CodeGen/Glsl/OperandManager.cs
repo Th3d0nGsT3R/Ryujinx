@@ -64,16 +64,6 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
             { AttributeConsts.GtMask,              new BuiltInAttribute("unpackUint2x32(gl_SubGroupGtMaskARB).x", VariableType.U32) },
             { AttributeConsts.LeMask,              new BuiltInAttribute("unpackUint2x32(gl_SubGroupLeMaskARB).x", VariableType.U32) },
             { AttributeConsts.LtMask,              new BuiltInAttribute("unpackUint2x32(gl_SubGroupLtMaskARB).x", VariableType.U32) },
-
-            // Support uniforms.
-            { AttributeConsts.FragmentOutputIsBgraBase + 0,  new BuiltInAttribute($"{DefaultNames.IsBgraName}[0]",  VariableType.Bool) },
-            { AttributeConsts.FragmentOutputIsBgraBase + 4,  new BuiltInAttribute($"{DefaultNames.IsBgraName}[1]",  VariableType.Bool) },
-            { AttributeConsts.FragmentOutputIsBgraBase + 8,  new BuiltInAttribute($"{DefaultNames.IsBgraName}[2]",  VariableType.Bool) },
-            { AttributeConsts.FragmentOutputIsBgraBase + 12, new BuiltInAttribute($"{DefaultNames.IsBgraName}[3]",  VariableType.Bool) },
-            { AttributeConsts.FragmentOutputIsBgraBase + 16, new BuiltInAttribute($"{DefaultNames.IsBgraName}[4]",  VariableType.Bool) },
-            { AttributeConsts.FragmentOutputIsBgraBase + 20, new BuiltInAttribute($"{DefaultNames.IsBgraName}[5]",  VariableType.Bool) },
-            { AttributeConsts.FragmentOutputIsBgraBase + 24, new BuiltInAttribute($"{DefaultNames.IsBgraName}[6]",  VariableType.Bool) },
-            { AttributeConsts.FragmentOutputIsBgraBase + 28, new BuiltInAttribute($"{DefaultNames.IsBgraName}[7]",  VariableType.Bool) }
         };
 
         private Dictionary<AstOperand, string> _locals;
@@ -92,18 +82,18 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
             return name;
         }
 
-        public string GetExpression(AstOperand operand, ShaderConfig config)
+        public string GetExpression(AstOperand operand, ShaderStage stage)
         {
             switch (operand.Type)
             {
                 case OperandType.Attribute:
-                    return GetAttributeName(operand, config);
+                    return GetAttributeName(operand, stage);
 
                 case OperandType.Constant:
                     return NumberFormatter.FormatInt(operand.Value);
 
                 case OperandType.ConstantBuffer:
-                    return GetConstantBufferName(operand.CbufSlot, operand.CbufOffset, config.Stage);
+                    return GetConstantBufferName(operand.CbufSlot, operand.CbufOffset, stage);
 
                 case OperandType.LocalVariable:
                     return _locals[operand];
@@ -148,18 +138,19 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
             return GetVec4Indexed(ubName + index0, offsetExpr + " & 3");
         }
 
-        public static string GetOutAttributeName(AstOperand attr, ShaderConfig config)
+        public static string GetOutAttributeName(AstOperand attr, ShaderStage stage)
         {
-            return GetAttributeName(attr, config, isOutAttr: true);
+            return GetAttributeName(attr, stage, isOutAttr: true);
         }
 
-        public static string GetAttributeName(AstOperand attr, ShaderConfig config, bool isOutAttr = false, string indexExpr = "0")
+        public static string GetAttributeName(AstOperand attr, ShaderStage stage, bool isOutAttr = false, string indexExpr = "0")
         {
             int value = attr.Value;
 
-            char swzMask = GetSwizzleMask((value >> 2) & 3);
+            string swzMask = GetSwizzleMask((value >> 2) & 3);
 
-            if (value >= AttributeConsts.UserAttributeBase && value < AttributeConsts.UserAttributeEnd)
+            if (value >= AttributeConsts.UserAttributeBase &&
+                value <  AttributeConsts.UserAttributeEnd)
             {
                 value -= AttributeConsts.UserAttributeBase;
 
@@ -167,32 +158,21 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
                     ? DefaultNames.OAttributePrefix
                     : DefaultNames.IAttributePrefix;
 
-                if ((config.Flags & TranslationFlags.Feedback) != 0)
+                string name = $"{prefix}{(value >> 4)}";
+
+                if (stage == ShaderStage.Geometry && !isOutAttr)
                 {
-                    string name = $"{prefix}{(value >> 4)}_{swzMask}";
-
-                    if (config.Stage == ShaderStage.Geometry && !isOutAttr)
-                    {
-                        name += $"[{indexExpr}]";
-                    }
-
-                    return name;
+                    name += $"[{indexExpr}]";
                 }
-                else
-                {
-                    string name = $"{prefix}{(value >> 4)}";
 
-                    if (config.Stage == ShaderStage.Geometry && !isOutAttr)
-                    {
-                        name += $"[{indexExpr}]";
-                    }
+                name += "." + swzMask;
 
-                    return name + '.' + swzMask;
-                }
+                return name;
             }
             else
             {
-                if (value >= AttributeConsts.FragmentOutputColorBase && value < AttributeConsts.FragmentOutputColorEnd)
+                if (value >= AttributeConsts.FragmentOutputColorBase &&
+                    value <  AttributeConsts.FragmentOutputColorEnd)
                 {
                     value -= AttributeConsts.FragmentOutputColorBase;
 
@@ -201,7 +181,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
                 else if (_builtInAttributes.TryGetValue(value & ~3, out BuiltInAttribute builtInAttr))
                 {
                     // TODO: There must be a better way to handle this...
-                    if (config.Stage == ShaderStage.Fragment)
+                    if (stage == ShaderStage.Fragment)
                     {
                         switch (value & ~3)
                         {
@@ -214,7 +194,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
 
                     string name = builtInAttr.Name;
 
-                    if (config.Stage == ShaderStage.Geometry && !isOutAttr)
+                    if (stage == ShaderStage.Geometry && !isOutAttr)
                     {
                         name = $"gl_in[{indexExpr}].{name}";
                     }
@@ -284,9 +264,9 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
             return _stagePrefixes[index];
         }
 
-        private static char GetSwizzleMask(int value)
+        private static string GetSwizzleMask(int value)
         {
-            return "xyzw"[value];
+            return "xyzw".Substring(value, 1);
         }
 
         public static VariableType GetNodeDestType(IAstNode node)

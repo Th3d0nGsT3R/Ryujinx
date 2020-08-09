@@ -1,5 +1,4 @@
 ﻿using Ryujinx.Common;
-using Ryujinx.Common.Configuration;
 using Ryujinx.Common.Configuration.Hid;
 using Ryujinx.Common.Logging;
 using Ryujinx.Configuration.Hid;
@@ -142,23 +141,17 @@ namespace Ryujinx.Configuration
             /// </summary>
             public ReactiveObject<bool> EnableFileLog { get; private set; }
 
-            /// <summary>
-            /// Controls which OpenGL log messages are recorded in the log
-            /// </summary>
-            public ReactiveObject<GraphicsDebugLevel> GraphicsDebugLevel { get; private set; }
-
             public LoggerSection()
             {
-                EnableDebug        = new ReactiveObject<bool>();
-                EnableStub         = new ReactiveObject<bool>();
-                EnableInfo         = new ReactiveObject<bool>();
-                EnableWarn         = new ReactiveObject<bool>();
-                EnableError        = new ReactiveObject<bool>();
-                EnableGuest        = new ReactiveObject<bool>();
-                EnableFsAccessLog  = new ReactiveObject<bool>();
-                FilteredClasses    = new ReactiveObject<LogClass[]>();
-                EnableFileLog      = new ReactiveObject<bool>();
-                GraphicsDebugLevel = new ReactiveObject<GraphicsDebugLevel>();
+                EnableDebug       = new ReactiveObject<bool>();
+                EnableStub        = new ReactiveObject<bool>();
+                EnableInfo        = new ReactiveObject<bool>();
+                EnableWarn        = new ReactiveObject<bool>();
+                EnableError       = new ReactiveObject<bool>();
+                EnableGuest       = new ReactiveObject<bool>();
+                EnableFsAccessLog = new ReactiveObject<bool>();
+                FilteredClasses   = new ReactiveObject<LogClass[]>();
+                EnableFileLog     = new ReactiveObject<bool>();
             }
         }
 
@@ -385,7 +378,6 @@ namespace Ryujinx.Configuration
                 LoggingEnableGuest        = Logger.EnableGuest,
                 LoggingEnableFsAccessLog  = Logger.EnableFsAccessLog,
                 LoggingFilteredClasses    = Logger.FilteredClasses,
-                LoggingGraphicsDebugLevel = Logger.GraphicsDebugLevel,
                 EnableFileLog             = Logger.EnableFileLog,
                 SystemLanguage            = System.Language,
                 SystemRegion              = System.Region,
@@ -444,7 +436,6 @@ namespace Ryujinx.Configuration
             Logger.EnableGuest.Value               = true;
             Logger.EnableFsAccessLog.Value         = false;
             Logger.FilteredClasses.Value           = new LogClass[] { };
-            Logger.GraphicsDebugLevel.Value        = GraphicsDebugLevel.None;
             Logger.EnableFileLog.Value             = true;
             System.Language.Value                  = Language.AmericanEnglish;
             System.Region.Value                    = Region.USA;
@@ -532,7 +523,7 @@ namespace Ryujinx.Configuration
 
             if (configurationFileFormat.Version < 0 || configurationFileFormat.Version > ConfigurationFileFormat.CurrentVersion)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Unsupported configuration version {configurationFileFormat.Version}, loading default.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Unsupported configuration version {configurationFileFormat.Version}, loading default.");
 
                 LoadDefault();
 
@@ -541,7 +532,7 @@ namespace Ryujinx.Configuration
 
             if (configurationFileFormat.Version < 2)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 2.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 2.");
 
                 configurationFileFormat.SystemRegion = Region.USA;
 
@@ -550,7 +541,7 @@ namespace Ryujinx.Configuration
 
             if (configurationFileFormat.Version < 3)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 3.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 3.");
 
                 configurationFileFormat.SystemTimeZone = "UTC";
 
@@ -559,7 +550,7 @@ namespace Ryujinx.Configuration
 
             if (configurationFileFormat.Version < 4)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 4.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 4.");
 
                 configurationFileFormat.MaxAnisotropy = -1;
 
@@ -568,7 +559,7 @@ namespace Ryujinx.Configuration
 
             if (configurationFileFormat.Version < 5)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 5.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 5.");
 
                 configurationFileFormat.SystemTimeOffset = 0;
 
@@ -577,7 +568,7 @@ namespace Ryujinx.Configuration
 
             if (configurationFileFormat.Version < 6)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 6.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 6.");
 
                 configurationFileFormat.ControllerConfig = new List<ControllerConfig>();
                 configurationFileFormat.KeyboardConfig   = new List<KeyboardConfig>
@@ -630,7 +621,7 @@ namespace Ryujinx.Configuration
             // Only needed for version 6 configurations.
             if (configurationFileFormat.Version == 6)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 7.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 7.");
 
                 for (int i = 0; i < configurationFileFormat.KeyboardConfig.Count; i++)
                 {
@@ -643,7 +634,7 @@ namespace Ryujinx.Configuration
 
             if (configurationFileFormat.Version < 8)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 8.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 8.");
 
                 configurationFileFormat.EnablePtc = false;
 
@@ -652,7 +643,7 @@ namespace Ryujinx.Configuration
 
             if (configurationFileFormat.Version < 9)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 9.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 9.");
 
                 configurationFileFormat.ColumnSort = new ColumnSort
                 {
@@ -670,7 +661,7 @@ namespace Ryujinx.Configuration
 
             if (configurationFileFormat.Version < 10)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 10.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 10.");
 
                 configurationFileFormat.AudioBackend = AudioBackend.OpenAl;
 
@@ -679,19 +670,10 @@ namespace Ryujinx.Configuration
 
             if (configurationFileFormat.Version < 11)
             {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 11.");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 11.");
 
                 configurationFileFormat.ResScale = 1;
                 configurationFileFormat.ResScaleCustom = 1.0f;
-
-                configurationFileUpdated = true;
-            }
-
-            if (configurationFileFormat.Version < 12)
-            {
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, $"Outdated configuration version {configurationFileFormat.Version}, migrating to version 12.");
-
-                configurationFileFormat.LoggingGraphicsDebugLevel = GraphicsDebugLevel.None;
 
                 configurationFileUpdated = true;
             }
@@ -712,7 +694,6 @@ namespace Ryujinx.Configuration
             Logger.EnableGuest.Value               = configurationFileFormat.LoggingEnableGuest;
             Logger.EnableFsAccessLog.Value         = configurationFileFormat.LoggingEnableFsAccessLog;
             Logger.FilteredClasses.Value           = configurationFileFormat.LoggingFilteredClasses;
-            Logger.GraphicsDebugLevel.Value        = configurationFileFormat.LoggingGraphicsDebugLevel;
             Logger.EnableFileLog.Value             = configurationFileFormat.EnableFileLog;
             System.Language.Value                  = configurationFileFormat.SystemLanguage;
             System.Region.Value                    = configurationFileFormat.SystemRegion;
@@ -750,7 +731,7 @@ namespace Ryujinx.Configuration
             {
                 ToFileFormat().SaveConfig(configurationFilePath);
 
-                Common.Logging.Logger.Warning?.Print(LogClass.Application, "Configuration file has been updated!");
+                Common.Logging.Logger.PrintWarning(LogClass.Application, "Configuration file has been updated!");
             }
         }
 

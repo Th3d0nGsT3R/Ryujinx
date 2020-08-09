@@ -82,7 +82,7 @@ namespace Ryujinx.Graphics.Gpu.Shader
 
             shader.HostShader = _context.Renderer.CompileShader(shader.Program);
 
-            IProgram hostProgram = _context.Renderer.CreateProgram(new IShader[] { shader.HostShader }, null);
+            IProgram hostProgram = _context.Renderer.CreateProgram(new IShader[] { shader.HostShader });
 
             ShaderBundle cpShader = new ShaderBundle(hostProgram, shader);
 
@@ -125,28 +125,19 @@ namespace Ryujinx.Graphics.Gpu.Shader
 
             ShaderCodeHolder[] shaders = new ShaderCodeHolder[Constants.ShaderStages];
 
-            var tfd = GetTransformFeedbackDescriptors(state);
-
-            TranslationFlags flags = DefaultFlags;
-
-            if (tfd != null)
-            {
-                flags |= TranslationFlags.Feedback;
-            }
-
             if (addresses.VertexA != 0)
             {
-                shaders[0] = TranslateGraphicsShader(state, flags, ShaderStage.Vertex, addresses.Vertex, addresses.VertexA);
+                shaders[0] = TranslateGraphicsShader(state, ShaderStage.Vertex, addresses.Vertex, addresses.VertexA);
             }
             else
             {
-                shaders[0] = TranslateGraphicsShader(state, flags, ShaderStage.Vertex, addresses.Vertex);
+                shaders[0] = TranslateGraphicsShader(state, ShaderStage.Vertex, addresses.Vertex);
             }
 
-            shaders[1] = TranslateGraphicsShader(state, flags, ShaderStage.TessellationControl,    addresses.TessControl);
-            shaders[2] = TranslateGraphicsShader(state, flags, ShaderStage.TessellationEvaluation, addresses.TessEvaluation);
-            shaders[3] = TranslateGraphicsShader(state, flags, ShaderStage.Geometry,               addresses.Geometry);
-            shaders[4] = TranslateGraphicsShader(state, flags, ShaderStage.Fragment,               addresses.Fragment);
+            shaders[1] = TranslateGraphicsShader(state, ShaderStage.TessellationControl,    addresses.TessControl);
+            shaders[2] = TranslateGraphicsShader(state, ShaderStage.TessellationEvaluation, addresses.TessEvaluation);
+            shaders[3] = TranslateGraphicsShader(state, ShaderStage.Geometry,               addresses.Geometry);
+            shaders[4] = TranslateGraphicsShader(state, ShaderStage.Fragment,               addresses.Fragment);
 
             List<IShader> hostShaders = new List<IShader>();
 
@@ -166,7 +157,7 @@ namespace Ryujinx.Graphics.Gpu.Shader
                 hostShaders.Add(hostShader);
             }
 
-            IProgram hostProgram = _context.Renderer.CreateProgram(hostShaders.ToArray(), tfd);
+            IProgram hostProgram = _context.Renderer.CreateProgram(hostShaders.ToArray());
 
             ShaderBundle gpShaders = new ShaderBundle(hostProgram, shaders);
 
@@ -180,36 +171,6 @@ namespace Ryujinx.Graphics.Gpu.Shader
             list.Add(gpShaders);
 
             return gpShaders;
-        }
-
-        /// <summary>
-        /// Gets transform feedback state from the current GPU state.
-        /// </summary>
-        /// <param name="state">Current GPU state</param>
-        /// <returns>Four transform feedback descriptors for the enabled TFBs, or null if TFB is disabled</returns>
-        private TransformFeedbackDescriptor[] GetTransformFeedbackDescriptors(GpuState state)
-        {
-            bool tfEnable = state.Get<Boolean32>(MethodOffset.TfEnable);
-
-            if (!tfEnable)
-            {
-                return null;
-            }
-
-            TransformFeedbackDescriptor[] descs = new TransformFeedbackDescriptor[Constants.TotalTransformFeedbackBuffers];
-
-            for (int i = 0; i < Constants.TotalTransformFeedbackBuffers; i++)
-            {
-                var tf = state.Get<TfState>(MethodOffset.TfState, i);
-
-                int length = (int)Math.Min((uint)tf.VaryingsCount, 0x80);
-
-                var varyingLocations = state.GetSpan(MethodOffset.TfVaryingLocations + i * 0x80, length).ToArray();
-
-                descs[i] = new TransformFeedbackDescriptor(tf.BufferIndex, tf.Stride, varyingLocations);
-            }
-
-            return descs;
         }
 
         /// <summary>
@@ -269,13 +230,13 @@ namespace Ryujinx.Graphics.Gpu.Shader
                 return true;
             }
 
-            ReadOnlySpan<byte> memoryCode = _context.MemoryManager.GetSpan(gpuVa, shader.Code.Length);
+            ReadOnlySpan<byte> memoryCode = _context.MemoryAccessor.GetSpan(gpuVa, shader.Code.Length);
 
             bool equals = memoryCode.SequenceEqual(shader.Code);
 
             if (equals && shader.Code2 != null)
             {
-                memoryCode = _context.MemoryManager.GetSpan(gpuVaA, shader.Code2.Length);
+                memoryCode = _context.MemoryAccessor.GetSpan(gpuVaA, shader.Code2.Length);
 
                 equals = memoryCode.SequenceEqual(shader.Code2);
             }
@@ -314,7 +275,7 @@ namespace Ryujinx.Graphics.Gpu.Shader
 
             program = Translator.Translate(gpuVa, gpuAccessor, DefaultFlags | TranslationFlags.Compute);
 
-            byte[] code = _context.MemoryManager.GetSpan(gpuVa, program.Size).ToArray();
+            byte[] code = _context.MemoryAccessor.ReadBytes(gpuVa, program.Size);
 
             _dumper.Dump(code, compute: true, out string fullPath, out string codePath);
 
@@ -334,12 +295,11 @@ namespace Ryujinx.Graphics.Gpu.Shader
         /// This will combine the "Vertex A" and "Vertex B" shader stages, if specified, into one shader.
         /// </remarks>
         /// <param name="state">Current GPU state</param>
-        /// <param name="flags">Flags that controls shader translation</param>
         /// <param name="stage">Shader stage</param>
         /// <param name="gpuVa">GPU virtual address of the shader code</param>
         /// <param name="gpuVaA">Optional GPU virtual address of the "Vertex A" shader code</param>
         /// <returns>Compiled graphics shader code</returns>
-        private ShaderCodeHolder TranslateGraphicsShader(GpuState state, TranslationFlags flags, ShaderStage stage, ulong gpuVa, ulong gpuVaA = 0)
+        private ShaderCodeHolder TranslateGraphicsShader(GpuState state, ShaderStage stage, ulong gpuVa, ulong gpuVaA = 0)
         {
             if (gpuVa == 0)
             {
@@ -350,10 +310,10 @@ namespace Ryujinx.Graphics.Gpu.Shader
 
             if (gpuVaA != 0)
             {
-                ShaderProgram program = Translator.Translate(gpuVaA, gpuVa, gpuAccessor, flags);
+                ShaderProgram program = Translator.Translate(gpuVaA, gpuVa, gpuAccessor, DefaultFlags);
 
-                byte[] codeA = _context.MemoryManager.GetSpan(gpuVaA, program.SizeA).ToArray();
-                byte[] codeB = _context.MemoryManager.GetSpan(gpuVa,  program.Size).ToArray();
+                byte[] codeA = _context.MemoryAccessor.ReadBytes(gpuVaA, program.SizeA);
+                byte[] codeB = _context.MemoryAccessor.ReadBytes(gpuVa,  program.Size);
 
                 _dumper.Dump(codeA, compute: false, out string fullPathA, out string codePathA);
                 _dumper.Dump(codeB, compute: false, out string fullPathB, out string codePathB);
@@ -370,9 +330,9 @@ namespace Ryujinx.Graphics.Gpu.Shader
             }
             else
             {
-                ShaderProgram program = Translator.Translate(gpuVa, gpuAccessor, flags);
+                ShaderProgram program = Translator.Translate(gpuVa, gpuAccessor, DefaultFlags);
 
-                byte[] code = _context.MemoryManager.GetSpan(gpuVa, program.Size).ToArray();
+                byte[] code = _context.MemoryAccessor.ReadBytes(gpuVa, program.Size);
 
                 _dumper.Dump(code, compute: false, out string fullPath, out string codePath);
 

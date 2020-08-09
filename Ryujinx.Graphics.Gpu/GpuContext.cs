@@ -1,6 +1,5 @@
 using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.Gpu.Engine;
-using Ryujinx.Graphics.Gpu.Engine.GPFifo;
 using Ryujinx.Graphics.Gpu.Memory;
 using Ryujinx.Graphics.Gpu.Synchronization;
 using System;
@@ -28,14 +27,24 @@ namespace Ryujinx.Graphics.Gpu
         public MemoryManager MemoryManager { get; }
 
         /// <summary>
+        /// GPU memory accessor.
+        /// </summary>
+        public MemoryAccessor MemoryAccessor { get; }
+
+        /// <summary>
         /// GPU engine methods processing.
         /// </summary>
         internal Methods Methods { get; }
 
         /// <summary>
-        /// GPU General Purpose FIFO queue.
+        /// GPU commands FIFO.
         /// </summary>
-        public GPFifoDevice GPFifo { get; }
+        internal NvGpuFifo Fifo { get; }
+
+        /// <summary>
+        /// DMA pusher.
+        /// </summary>
+        public DmaPusher DmaPusher { get; }
 
         /// <summary>
         /// GPU synchronization manager.
@@ -68,11 +77,15 @@ namespace Ryujinx.Graphics.Gpu
         {
             Renderer = renderer;
 
-            MemoryManager = new MemoryManager(this);
+            MemoryManager = new MemoryManager();
+
+            MemoryAccessor = new MemoryAccessor(this);
 
             Methods = new Methods(this);
 
-            GPFifo = new GPFifoDevice(this);
+            Fifo = new NvGpuFifo(this);
+
+            DmaPusher = new DmaPusher(this);
 
             Synchronization = new SynchronizationManager();
 
@@ -112,7 +125,6 @@ namespace Ryujinx.Graphics.Gpu
             Methods.BufferManager.Dispose();
             Methods.TextureManager.Dispose();
             Renderer.Dispose();
-            GPFifo.Dispose();
         }
     }
 }

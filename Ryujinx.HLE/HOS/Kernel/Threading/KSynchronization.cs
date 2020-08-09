@@ -1,5 +1,4 @@
 using Ryujinx.HLE.HOS.Kernel.Common;
-using System;
 using System.Collections.Generic;
 
 namespace Ryujinx.HLE.HOS.Kernel.Threading
@@ -13,7 +12,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Threading
             _context = context;
         }
 
-        public KernelResult WaitFor(Span<KSynchronizationObject> syncObjs, long timeout, out int handleIndex)
+        public KernelResult WaitFor(KSynchronizationObject[] syncObjs, long timeout, out int handleIndex)
         {
             handleIndex = 0;
 

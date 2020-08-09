@@ -33,7 +33,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Lib
             _normalSession.DataAvailable      += OnNormalOutData;
             _interactiveSession.DataAvailable += OnInteractiveOutData;
             
-            Logger.Info?.Print(LogClass.ServiceAm, $"Applet '{appletId}' created.");
+            Logger.PrintInfo(LogClass.ServiceAm, $"Applet '{appletId}' created.");
         }
 
         private void OnAppletStateChanged(object sender, EventArgs e)
@@ -158,43 +158,6 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Lib
             }
 
             context.Response.HandleDesc = IpcHandleDesc.MakeCopy(handle);
-
-            return ResultCode.Success;
-        }
-
-        [Command(110)]
-        // NeedsToExitProcess()
-        public ResultCode NeedsToExitProcess(ServiceCtx context)
-        {
-            return ResultCode.Stubbed;
-        }
-
-        [Command(150)]
-        // RequestForAppletToGetForeground()
-        public ResultCode RequestForAppletToGetForeground(ServiceCtx context)
-        {
-            return ResultCode.Stubbed;
-        }
-
-        [Command(160)] // 2.0.0+
-        // GetIndirectLayerConsumerHandle() -> u64 indirect_layer_consumer_handle
-        public ResultCode GetIndirectLayerConsumerHandle(ServiceCtx context)
-        {
-            /*
-            if (indirectLayerConsumer == null)
-            {
-                return ResultCode.ObjectInvalid;
-            }
-            */
-
-            // TODO: Official sw uses this during LibraryApplet creation when LibraryAppletMode is 0x3.
-            //       Since we don't support IndirectLayer and the handle couldn't be 0, it's fine to return 1.
-
-            ulong indirectLayerConsumerHandle = 1;
-
-            context.ResponseData.Write(indirectLayerConsumerHandle);
-
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { indirectLayerConsumerHandle });
 
             return ResultCode.Success;
         }

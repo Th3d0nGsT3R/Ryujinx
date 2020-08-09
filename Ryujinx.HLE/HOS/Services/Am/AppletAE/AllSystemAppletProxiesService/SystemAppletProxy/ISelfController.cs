@@ -19,18 +19,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // TODO: Set this when the game goes in suspension (go back to home menu ect), we currently don't support that so we can keep it set to 0.
         private ulong _accumulatedSuspendedTickValue = 0;
 
-        // TODO: Determine where those fields are used.
-        private bool _screenShotPermission               = false;
-        private bool _operationModeChangedNotification   = false;
-        private bool _performanceModeChangedNotification = false;
-        private bool _restartMessageEnabled              = false;
-        private bool _outOfFocusSuspendingEnabled        = false;
-        private bool _handlesRequestToDisplay            = false;
-        private bool _autoSleepDisabled                  = false;
-        private bool _albumImageTakenNotificationEnabled = false;
-
-        private uint _screenShotImageOrientation = 0;
-        private uint _idleTimeDetectionExtension = 0;
+        private int _idleTimeDetectionExtension;
 
         public ISelfController(Horizon system)
         {
@@ -41,7 +30,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // Exit()
         public ResultCode Exit(ServiceCtx context)
         {
-            Logger.Stub?.PrintStub(LogClass.ServiceAm);
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -50,7 +39,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // LockExit()
         public ResultCode LockExit(ServiceCtx context)
         {
-            Logger.Stub?.PrintStub(LogClass.ServiceAm);
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -59,7 +48,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // UnlockExit()
         public ResultCode UnlockExit(ServiceCtx context)
         {
-            Logger.Stub?.PrintStub(LogClass.ServiceAm);
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -110,7 +99,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
 
             context.Response.HandleDesc = IpcHandleDesc.MakeCopy(handle);
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm);
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -119,11 +108,9 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // SetScreenShotPermission(u32)
         public ResultCode SetScreenShotPermission(ServiceCtx context)
         {
-            bool screenShotPermission = context.RequestData.ReadBoolean();
+            bool enable = context.RequestData.ReadByte() != 0;
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { screenShotPermission });
-
-            _screenShotPermission = screenShotPermission;
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -132,11 +119,9 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // SetOperationModeChangedNotification(b8)
         public ResultCode SetOperationModeChangedNotification(ServiceCtx context)
         {
-            bool operationModeChangedNotification = context.RequestData.ReadBoolean();
+            bool enable = context.RequestData.ReadByte() != 0;
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { operationModeChangedNotification });
-
-            _operationModeChangedNotification = operationModeChangedNotification;
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -145,11 +130,9 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // SetPerformanceModeChangedNotification(b8)
         public ResultCode SetPerformanceModeChangedNotification(ServiceCtx context)
         {
-            bool performanceModeChangedNotification = context.RequestData.ReadBoolean();
+            bool enable = context.RequestData.ReadByte() != 0;
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { performanceModeChangedNotification });
-
-            _performanceModeChangedNotification = performanceModeChangedNotification;
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -158,11 +141,11 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // SetFocusHandlingMode(b8, b8, b8)
         public ResultCode SetFocusHandlingMode(ServiceCtx context)
         {
-            bool unknownFlag1 = context.RequestData.ReadBoolean();
-            bool unknownFlag2 = context.RequestData.ReadBoolean();
-            bool unknownFlag3 = context.RequestData.ReadBoolean();
+            bool flag1 = context.RequestData.ReadByte() != 0;
+            bool flag2 = context.RequestData.ReadByte() != 0;
+            bool flag3 = context.RequestData.ReadByte() != 0;
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { unknownFlag1, unknownFlag2, unknownFlag3 });
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -171,11 +154,9 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // SetRestartMessageEnabled(b8)
         public ResultCode SetRestartMessageEnabled(ServiceCtx context)
         {
-            bool restartMessageEnabled = context.RequestData.ReadBoolean();
+            bool enable = context.RequestData.ReadByte() != 0;
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { restartMessageEnabled });
-
-            _restartMessageEnabled = restartMessageEnabled;
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -184,24 +165,19 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // SetOutOfFocusSuspendingEnabled(b8)
         public ResultCode SetOutOfFocusSuspendingEnabled(ServiceCtx context)
         {
-            bool outOfFocusSuspendingEnabled = context.RequestData.ReadBoolean();
+            bool enable = context.RequestData.ReadByte() != 0;
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { outOfFocusSuspendingEnabled });
-
-            _outOfFocusSuspendingEnabled = outOfFocusSuspendingEnabled;
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
 
         [Command(19)] // 3.0.0+
-        // SetScreenShotImageOrientation(u32)
         public ResultCode SetScreenShotImageOrientation(ServiceCtx context)
         {
-            uint screenShotImageOrientation = context.RequestData.ReadUInt32();
+            int orientation = context.RequestData.ReadInt32();
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { screenShotImageOrientation });
-
-            _screenShotImageOrientation = screenShotImageOrientation;
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -210,11 +186,9 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // SetHandlesRequestToDisplay(b8)
         public ResultCode SetHandlesRequestToDisplay(ServiceCtx context)
         {
-            bool handlesRequestToDisplay = context.RequestData.ReadBoolean();
+            bool enable = context.RequestData.ReadByte() != 0;
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { handlesRequestToDisplay });
-
-            _handlesRequestToDisplay = handlesRequestToDisplay;
+            Logger.PrintStub(LogClass.ServiceAm);
 
             return ResultCode.Success;
         }
@@ -223,11 +197,9 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         // SetIdleTimeDetectionExtension(u32)
         public ResultCode SetIdleTimeDetectionExtension(ServiceCtx context)
         {
-            uint idleTimeDetectionExtension = context.RequestData.ReadUInt32();
+            _idleTimeDetectionExtension = context.RequestData.ReadInt32();
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { idleTimeDetectionExtension });
-
-            _idleTimeDetectionExtension = idleTimeDetectionExtension;
+            Logger.PrintStub(LogClass.ServiceAm, new { _idleTimeDetectionExtension });
 
             return ResultCode.Success;
         }
@@ -238,27 +210,7 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
         {
             context.ResponseData.Write(_idleTimeDetectionExtension);
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAm, new { _idleTimeDetectionExtension });
-
-            return ResultCode.Success;
-        }
-
-        [Command(68)]
-        // SetAutoSleepDisabled(u8)
-        public ResultCode SetAutoSleepDisabled(ServiceCtx context)
-        {
-            bool autoSleepDisabled = context.RequestData.ReadBoolean();
-
-            _autoSleepDisabled = autoSleepDisabled;
-
-            return ResultCode.Success;
-        }
-
-        [Command(69)]
-        // IsAutoSleepDisabled() -> u8
-        public ResultCode IsAutoSleepDisabled(ServiceCtx context)
-        {
-            context.ResponseData.Write(_autoSleepDisabled);
+            Logger.PrintStub(LogClass.ServiceAm, new { _idleTimeDetectionExtension });
 
             return ResultCode.Success;
         }
@@ -289,17 +241,6 @@ namespace Ryujinx.HLE.HOS.Services.Am.AppletAE.AllSystemAppletProxiesService.Sys
             }
 
             context.Response.HandleDesc = IpcHandleDesc.MakeCopy(_accumulatedSuspendedTickChangedEventHandle);
-
-            return ResultCode.Success;
-        }
-
-        [Command(100)] // 7.0.0+
-        // SetAlbumImageTakenNotificationEnabled(u8)
-        public ResultCode SetAlbumImageTakenNotificationEnabled(ServiceCtx context)
-        {
-            bool albumImageTakenNotificationEnabled = context.RequestData.ReadBoolean();
-
-            _albumImageTakenNotificationEnabled = albumImageTakenNotificationEnabled;
 
             return ResultCode.Success;
         }

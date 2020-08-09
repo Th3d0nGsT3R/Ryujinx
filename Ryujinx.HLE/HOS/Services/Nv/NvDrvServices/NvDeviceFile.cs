@@ -14,8 +14,6 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices
         public readonly ServiceCtx Context;
         public readonly KProcess   Owner;
 
-        public string Path;
-
         public NvDeviceFile(ServiceCtx context)
         {
             Context = context;
@@ -56,7 +54,7 @@ namespace Ryujinx.HLE.HOS.Services.Nv.NvDrvServices
 
         private static NvInternalResult PrintResult(MethodInfo info, NvInternalResult result)
         {
-            Logger.Debug?.Print(LogClass.ServiceNv, $"{info.Name} returned result {result}");
+            Logger.PrintDebug(LogClass.ServiceNv, $"{info.Name} returned result {result}");
 
             return result;
         }

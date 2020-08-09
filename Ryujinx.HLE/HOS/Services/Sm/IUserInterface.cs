@@ -88,7 +88,7 @@ namespace Ryujinx.HLE.HOS.Services.Sm
                 {
                     if (ServiceConfiguration.IgnoreMissingServices)
                     {
-                        Logger.Warning?.Print(LogClass.Service, $"Missing service {name} ignored");
+                        Logger.PrintWarning(LogClass.Service, $"Missing service {name} ignored");
 
                         session.ClientSession.Service = new DummyService(name);
                     }
@@ -103,9 +103,6 @@ namespace Ryujinx.HLE.HOS.Services.Sm
             {
                 throw new InvalidOperationException("Out of handles!");
             }
-
-            session.ServerSession.DecrementReferenceCount();
-            session.ClientSession.DecrementReferenceCount();
 
             context.Response.HandleDesc = IpcHandleDesc.MakeMove(handle);
 
@@ -136,7 +133,7 @@ namespace Ryujinx.HLE.HOS.Services.Sm
                 return ResultCode.InvalidName;
             }
 
-            Logger.Info?.Print(LogClass.ServiceSm, $"Register \"{name}\".");
+            Logger.PrintInfo(LogClass.ServiceSm, $"Register \"{name}\".");
 
             KPort port = new KPort(context.Device.System.KernelContext, maxSessions, isLight, 0);
 

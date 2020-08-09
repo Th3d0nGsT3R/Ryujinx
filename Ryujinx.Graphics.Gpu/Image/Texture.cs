@@ -414,7 +414,7 @@ namespace Ryujinx.Graphics.Gpu.Image
 
             if (ScaleFactor != scale)
             {
-                Logger.Debug?.Print(LogClass.Gpu, $"Rescaling {Info.Width}x{Info.Height} {Info.FormatInfo.Format.ToString()} to ({ScaleFactor} to {scale}). ");
+                Logger.PrintDebug(LogClass.Gpu, $"Rescaling {Info.Width}x{Info.Height} {Info.FormatInfo.Format.ToString()} to ({ScaleFactor} to {scale}). ");
                 TextureCreateInfo createInfo = TextureManager.GetCreateInfo(Info, _context.Capabilities);
 
                 ScaleFactor = scale;
@@ -430,7 +430,7 @@ namespace Ryujinx.Graphics.Gpu.Image
                     HostTexture.CopyTo(newStorage, new Extents2D(0, 0, HostTexture.Width, HostTexture.Height), new Extents2D(0, 0, newStorage.Width, newStorage.Height), true);
                 }
 
-                Logger.Debug?.Print(LogClass.Gpu, $"  Copy performed: {HostTexture.Width}x{HostTexture.Height} to {newStorage.Width}x{newStorage.Height}");
+                Logger.PrintDebug(LogClass.Gpu, $"  Copy performed: {HostTexture.Width}x{HostTexture.Height} to {newStorage.Width}x{newStorage.Height}");
 
                 ReplaceStorage(newStorage);
 
@@ -438,7 +438,7 @@ namespace Ryujinx.Graphics.Gpu.Image
 
                 foreach (var view in _views)
                 {
-                    Logger.Debug?.Print(LogClass.Gpu, $"  Recreating view {Info.Width}x{Info.Height} {Info.FormatInfo.Format.ToString()}.");
+                    Logger.PrintDebug(LogClass.Gpu, $"  Recreating view {Info.Width}x{Info.Height} {Info.FormatInfo.Format.ToString()}.");
                     view.ScaleFactor = scale;
 
                     TextureCreateInfo viewCreateInfo = TextureManager.GetCreateInfo(view.Info, _context.Capabilities);
@@ -590,7 +590,7 @@ namespace Ryujinx.Graphics.Gpu.Image
                 {
                     string texInfo = $"{Info.Target} {Info.FormatInfo.Format} {Info.Width}x{Info.Height}x{Info.DepthOrLayers} levels {Info.Levels}";
 
-                    Logger.Debug?.Print(LogClass.Gpu, $"Invalid ASTC texture at 0x{Info.Address:X} ({texInfo}).");
+                    Logger.PrintDebug(LogClass.Gpu, $"Invalid ASTC texture at 0x{Info.Address:X} ({texInfo}).");
                 }
 
                 data = decoded;
@@ -667,7 +667,7 @@ namespace Ryujinx.Graphics.Gpu.Image
         /// <returns>True if the textures are strictly equal or similar, false otherwise</returns>
         public bool IsPerfectMatch(TextureInfo info, TextureSearchFlags flags)
         {
-            if (!FormatMatches(info, (flags & TextureSearchFlags.ForSampler) != 0, (flags & TextureSearchFlags.ForCopy) != 0))
+            if (!FormatMatches(info, (flags & TextureSearchFlags.Strict) != 0))
             {
                 return false;
             }
@@ -682,7 +682,7 @@ namespace Ryujinx.Graphics.Gpu.Image
                 return false;
             }
 
-            if ((flags & TextureSearchFlags.ForSampler) != 0 || (flags & TextureSearchFlags.Strict) != 0)
+            if ((flags & TextureSearchFlags.Sampler) != 0)
             {
                 if (!SamplerParamsMatches(info))
                 {
@@ -690,7 +690,7 @@ namespace Ryujinx.Graphics.Gpu.Image
                 }
             }
 
-            if ((flags & TextureSearchFlags.ForCopy) != 0)
+            if ((flags & TextureSearchFlags.IgnoreMs) != 0)
             {
                 bool msTargetCompatible = Info.Target == Target.Texture2DMultisample && info.Target == Target.Texture2D;
 
@@ -711,37 +711,15 @@ namespace Ryujinx.Graphics.Gpu.Image
         /// Checks if the texture format matches with the specified texture information.
         /// </summary>
         /// <param name="info">Texture information to compare with</param>
-        /// <param name="forSampler">Indicates that the texture will be used for shader sampling</param>
-        /// <param name="forCopy">Indicates that the texture will be used as copy source or target</param>
+        /// <param name="strict">True to perform a strict comparison (formats must be exactly equal)</param>
         /// <returns>True if the format matches, with the given comparison rules</returns>
-        private bool FormatMatches(TextureInfo info, bool forSampler, bool forCopy)
+        private bool FormatMatches(TextureInfo info, bool strict)
         {
             // D32F and R32F texture have the same representation internally,
             // however the R32F format is used to sample from depth textures.
-            if (Info.FormatInfo.Format == Format.D32Float && info.FormatInfo.Format == Format.R32Float && (forSampler || forCopy))
+            if (Info.FormatInfo.Format == Format.D32Float && info.FormatInfo.Format == Format.R32Float && !strict)
             {
                 return true;
-            }
-
-            if (forCopy)
-            {
-                // The 2D engine does not support depth-stencil formats, so it will instead
-                // use equivalent color formats. We must also consider them as compatible.
-                if (Info.FormatInfo.Format == Format.S8Uint && info.FormatInfo.Format == Format.R8Unorm)
-                {
-                    return true;
-                }
-
-                if (Info.FormatInfo.Format == Format.D16Unorm && info.FormatInfo.Format == Format.R16Unorm)
-                {
-                    return true;
-                }
-
-                if ((Info.FormatInfo.Format == Format.D24UnormS8Uint ||
-                     Info.FormatInfo.Format == Format.D24X8Unorm) && info.FormatInfo.Format == Format.B8G8R8A8Unorm)
-                {
-                    return true;
-                }
             }
 
             return Info.FormatInfo.Format == info.FormatInfo.Format;

@@ -18,7 +18,7 @@ namespace Ryujinx.HLE.HOS.Services.Audio.AudioRendererManager
 
             if (performanceMetricsDataFormat != 1)
             {
-                Logger.Warning?.Print(LogClass.ServiceAudio, $"PerformanceMetricsDataFormat: {performanceMetricsDataFormat} is not supported!");
+                Logger.PrintWarning(LogClass.ServiceAudio, $"PerformanceMetricsDataFormat: {performanceMetricsDataFormat} is not supported!");
             }
 
             return (((parameters.VoiceCount  + 

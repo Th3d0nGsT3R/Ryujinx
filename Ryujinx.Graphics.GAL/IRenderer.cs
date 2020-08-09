@@ -1,4 +1,3 @@
-using Ryujinx.Common.Configuration;
 using Ryujinx.Graphics.Shader;
 using System;
 
@@ -14,7 +13,7 @@ namespace Ryujinx.Graphics.GAL
 
         BufferHandle CreateBuffer(int size);
 
-        IProgram CreateProgram(IShader[] shaders, TransformFeedbackDescriptor[] transformFeedbackDescriptors);
+        IProgram CreateProgram(IShader[] shaders);
 
         ISampler CreateSampler(SamplerCreateInfo info);
         ITexture CreateTexture(TextureCreateInfo info, float scale);
@@ -33,6 +32,6 @@ namespace Ryujinx.Graphics.GAL
 
         void ResetCounter(CounterType type);
 
-        void Initialize(GraphicsDebugLevel logLevel);
+        void Initialize();
     }
 }

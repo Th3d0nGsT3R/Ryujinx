@@ -1,5 +1,4 @@
-﻿using Ryujinx.Common.Logging;
-using Ryujinx.HLE.HOS.Applets.SoftwareKeyboard;
+﻿using Ryujinx.HLE.HOS.Applets.SoftwareKeyboard;
 using Ryujinx.HLE.HOS.Services.Am.AppletAE;
 using System;
 using System.IO;
@@ -10,9 +9,8 @@ namespace Ryujinx.HLE.HOS.Applets
 {
     internal class SoftwareKeyboardApplet : IApplet
     {
+        private const string DefaultNumb = "1";
         private const string DefaultText = "Ryujinx";
-
-        private readonly Switch _device;
 
         private const int StandardBufferSize    = 0x7D8;
         private const int InteractiveBufferSize = 0x7D4;
@@ -23,18 +21,13 @@ namespace Ryujinx.HLE.HOS.Applets
         private AppletSession _interactiveSession;
 
         private SoftwareKeyboardConfig _keyboardConfig;
-        private byte[] _transferMemory;
 
-        private string   _textValue = null;
-        private bool     _okPressed = false;
+        private string   _textValue = DefaultText;
         private Encoding _encoding  = Encoding.Unicode;
 
         public event EventHandler AppletStateChanged;
 
-        public SoftwareKeyboardApplet(Horizon system)
-        {
-            _device = system.Device;
-        }
+        public SoftwareKeyboardApplet(Horizon system) { }
 
         public ResultCode Start(AppletSession normalSession,
                                 AppletSession interactiveSession)
@@ -46,20 +39,9 @@ namespace Ryujinx.HLE.HOS.Applets
 
             var launchParams   = _normalSession.Pop();
             var keyboardConfig = _normalSession.Pop();
+            var transferMemory = _normalSession.Pop();
 
-            if (keyboardConfig.Length < Marshal.SizeOf<SoftwareKeyboardConfig>())
-            {
-                Logger.Error?.Print(LogClass.ServiceAm, $"SoftwareKeyboardConfig size mismatch. Expected {Marshal.SizeOf<SoftwareKeyboardConfig>():x}. Got {keyboardConfig.Length:x}");
-            }
-            else
-            {
-                _keyboardConfig = ReadStruct<SoftwareKeyboardConfig>(keyboardConfig);
-            }
-
-            if (!_normalSession.TryPop(out _transferMemory))
-            {
-                Logger.Error?.Print(LogClass.ServiceAm, "SwKbd Transfer Memory is null");
-            }
+            _keyboardConfig = ReadStruct<SoftwareKeyboardConfig>(keyboardConfig);
 
             if (_keyboardConfig.UseUtf8)
             {
@@ -80,13 +62,11 @@ namespace Ryujinx.HLE.HOS.Applets
 
         private void Execute()
         {
-            string initialText = null;
-
-            // Initial Text is always encoded as a UTF-16 string in the work buffer (passed as transfer memory)
-            // InitialStringOffset points to the memory offset and InitialStringLength is the number of UTF-16 characters
-            if (_transferMemory != null && _keyboardConfig.InitialStringLength > 0)
+            // If the keyboard type is numbers only, we swap to a default
+            // text that only contains numbers.
+            if (_keyboardConfig.Mode == KeyboardMode.NumbersOnly)
             {
-                initialText = Encoding.Unicode.GetString(_transferMemory, _keyboardConfig.InitialStringOffset, 2 * _keyboardConfig.InitialStringLength);
+                _textValue = DefaultNumb;
             }
 
             // If the max string length is 0, we set it to a large default
@@ -95,30 +75,6 @@ namespace Ryujinx.HLE.HOS.Applets
             {
                 _keyboardConfig.StringLengthMax = 100;
             }
-
-            var args = new SoftwareKeyboardUiArgs
-            {
-                HeaderText = _keyboardConfig.HeaderText,
-                SubtitleText = _keyboardConfig.SubtitleText,
-                GuideText = _keyboardConfig.GuideText,
-                SubmitText = (!string.IsNullOrWhiteSpace(_keyboardConfig.SubmitText) ? _keyboardConfig.SubmitText : "OK"),
-                StringLengthMin = _keyboardConfig.StringLengthMin, 
-                StringLengthMax = _keyboardConfig.StringLengthMax,
-                InitialText = initialText
-            };
-
-            // Call the configured GUI handler to get user's input
-            if (_device.UiHandler == null)
-            {
-                Logger.Warning?.Print(LogClass.Application, $"GUI Handler is not set. Falling back to default");
-                _okPressed = true;
-            }
-            else
-            {
-                _okPressed = _device.UiHandler.DisplayInputDialog(args, out _textValue);
-            }
-
-            _textValue ??= initialText ?? DefaultText;
 
             // If the game requests a string with a minimum length less
             // than our default text, repeat our default text until we meet
@@ -206,7 +162,7 @@ namespace Ryujinx.HLE.HOS.Applets
                 if (!interactive)
                 {
                     // Result Code
-                    writer.Write(_okPressed ? 0U : 1U);
+                    writer.Write((uint)0);
                 }
                 else
                 {

@@ -1,7 +1,4 @@
-using Ryujinx.Common.Logging;
-using System;
 using System.Management;
-using System.Runtime.InteropServices;
 
 namespace Ryujinx.Common.SystemInfo
 {
@@ -12,34 +9,14 @@ namespace Ryujinx.Common.SystemInfo
 
         public WindowsSysteminfo()
         {
-            bool wmiNotAvailable = false;
-
-            try
+            foreach (ManagementBaseObject mObject in new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor").Get())
             {
-                foreach (ManagementBaseObject mObject in new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_Processor").Get())
-                {
-                    CpuName = mObject["Name"].ToString();
-                }
-
-                foreach (ManagementBaseObject mObject in new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_OperatingSystem").Get())
-                {
-                    RamSize = ulong.Parse(mObject["TotalVisibleMemorySize"].ToString()) * 1024;
-                }
-            }
-            catch (PlatformNotSupportedException)
-            {
-                wmiNotAvailable = true;
-            }
-            catch (COMException)
-            {
-                wmiNotAvailable = true;
+                CpuName = mObject["Name"].ToString();
             }
 
-            if (wmiNotAvailable)
+            foreach (ManagementBaseObject mObject in new ManagementObjectSearcher("root\\CIMV2", "SELECT * FROM Win32_OperatingSystem").Get())
             {
-                Logger.Error?.Print(LogClass.Application, "WMI isn't available, system informations will use default values.");
-
-                CpuName = "Unknown";
+                RamSize = ulong.Parse(mObject["TotalVisibleMemorySize"].ToString()) * 1024;
             }
         }
     }

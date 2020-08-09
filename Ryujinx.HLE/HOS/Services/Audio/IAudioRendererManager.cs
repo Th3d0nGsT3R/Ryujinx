@@ -86,7 +86,7 @@ namespace Ryujinx.HLE.HOS.Services.Audio
 
                 context.ResponseData.Write(size);
 
-                Logger.Debug?.Print(LogClass.ServiceAudio, $"WorkBufferSize is 0x{size:x16}.");
+                Logger.PrintDebug(LogClass.ServiceAudio, $"WorkBufferSize is 0x{size:x16}.");
 
                 return ResultCode.Success;
             }
@@ -94,7 +94,7 @@ namespace Ryujinx.HLE.HOS.Services.Audio
             {
                 context.ResponseData.Write(0L);
 
-                Logger.Warning?.Print(LogClass.ServiceAudio, $"Library Revision REV{AudioRendererCommon.GetRevisionVersion(parameters.Revision)} is not supported!");
+                Logger.PrintWarning(LogClass.ServiceAudio, $"Library Revision REV{AudioRendererCommon.GetRevisionVersion(parameters.Revision)} is not supported!");
 
                 return ResultCode.UnsupportedRevision;
             }
@@ -140,7 +140,7 @@ namespace Ryujinx.HLE.HOS.Services.Audio
             int  revisionInfo         = context.RequestData.ReadInt32();
             long appletResourceUserId = context.RequestData.ReadInt64();
 
-            Logger.Stub?.PrintStub(LogClass.ServiceAudio, new { appletResourceUserId, revisionInfo });
+            Logger.PrintStub(LogClass.ServiceAudio, new { appletResourceUserId, revisionInfo });
 
             return GetAudioDeviceService(context);
         }

@@ -5,7 +5,6 @@ using LibHac.Ns;
 using Ryujinx.Audio;
 using Ryujinx.Common.Logging;
 using Ryujinx.Configuration;
-using Ryujinx.Configuration.System;
 using Ryujinx.Debugger.Profiler;
 using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.OpenGL;
@@ -32,7 +31,6 @@ namespace Ryujinx.Ui
         private static HLE.Switch _emulationContext;
 
         private static GlRenderer _glWidget;
-        private static GtkHostUiHandler _uiHandler;
 
         private static AutoResetEvent _deviceExitStatus = new AutoResetEvent(false);
 
@@ -96,7 +94,6 @@ namespace Ryujinx.Ui
             this.DefaultWidth  = monitorWidth < 1280 ? monitorWidth : 1280;
             this.DefaultHeight = monitorHeight < 760 ? monitorHeight : 760;
 
-            this.WindowStateEvent += MainWindow_WindowStateEvent;
             this.DeleteEvent      += Window_Close;
             _fullScreen.Activated += FullScreen_Toggled;
 
@@ -193,13 +190,6 @@ namespace Ryujinx.Ui
             Task.Run(RefreshFirmwareLabel);
 
             _statusBar.Hide();
-
-            _uiHandler = new GtkHostUiHandler(this);
-        }
-
-        private void MainWindow_WindowStateEvent(object o, WindowStateEventArgs args)
-        {
-            _fullScreen.Label = args.Event.NewWindowState.HasFlag(Gdk.WindowState.Fullscreen) ? "Exit Fullscreen" : "Enter Fullscreen";
         }
 
 #if USE_DEBUGGING
@@ -249,7 +239,7 @@ namespace Ryujinx.Ui
             }
             else
             {
-                Logger.Warning?.Print(LogClass.Application, $"The \"custom_theme_path\" section in \"Config.json\" contains an invalid path: \"{ConfigurationState.Instance.Ui.CustomThemePath}\".");
+                Logger.PrintWarning(LogClass.Application, $"The \"custom_theme_path\" section in \"Config.json\" contains an invalid path: \"{ConfigurationState.Instance.Ui.CustomThemePath}\".");
             }
         }
 
@@ -322,10 +312,7 @@ namespace Ryujinx.Ui
         {
             _virtualFileSystem.Reload();
 
-            HLE.Switch instance = new HLE.Switch(_virtualFileSystem, _contentManager, InitializeRenderer(), InitializeAudioEngine())
-            {
-                UiHandler = _uiHandler
-            };
+            HLE.Switch instance = new HLE.Switch(_virtualFileSystem, _contentManager, InitializeRenderer(), InitializeAudioEngine());
 
             instance.Initialize();
 
@@ -405,7 +392,7 @@ namespace Ryujinx.Ui
 
                 UpdateGraphicsConfig();
 
-                Logger.Notice.Print(LogClass.Application, $"Using Firmware Version: {_contentManager.GetCurrentFirmwareVersion()?.VersionString}");
+                Logger.PrintInfo(LogClass.Application, $"Using Firmware Version: {_contentManager.GetCurrentFirmwareVersion()?.VersionString}");
 
                 if (Directory.Exists(path))
                 {
@@ -418,12 +405,12 @@ namespace Ryujinx.Ui
 
                     if (romFsFiles.Length > 0)
                     {
-                        Logger.Info?.Print(LogClass.Application, "Loading as cart with RomFS.");
+                        Logger.PrintInfo(LogClass.Application, "Loading as cart with RomFS.");
                         device.LoadCart(path, romFsFiles[0]);
                     }
                     else
                     {
-                        Logger.Info?.Print(LogClass.Application, "Loading as cart WITHOUT RomFS.");
+                        Logger.PrintInfo(LogClass.Application, "Loading as cart WITHOUT RomFS.");
                         device.LoadCart(path);
                     }
                 }
@@ -432,34 +419,34 @@ namespace Ryujinx.Ui
                     switch (System.IO.Path.GetExtension(path).ToLowerInvariant())
                     {
                         case ".xci":
-                            Logger.Info?.Print(LogClass.Application, "Loading as XCI.");
+                            Logger.PrintInfo(LogClass.Application, "Loading as XCI.");
                             device.LoadXci(path);
                             break;
                         case ".nca":
-                            Logger.Info?.Print(LogClass.Application, "Loading as NCA.");
+                            Logger.PrintInfo(LogClass.Application, "Loading as NCA.");
                             device.LoadNca(path);
                             break;
                         case ".nsp":
                         case ".pfs0":
-                            Logger.Info?.Print(LogClass.Application, "Loading as NSP.");
+                            Logger.PrintInfo(LogClass.Application, "Loading as NSP.");
                             device.LoadNsp(path);
                             break;
                         default:
-                            Logger.Info?.Print(LogClass.Application, "Loading as homebrew.");
+                            Logger.PrintInfo(LogClass.Application, "Loading as homebrew.");
                             try
                             {
                                 device.LoadProgram(path);
                             }
                             catch (ArgumentOutOfRangeException)
                             {
-                                Logger.Error?.Print(LogClass.Application, "The file which you have specified is unsupported by Ryujinx.");
+                                Logger.PrintError(LogClass.Application, "The file which you have specified is unsupported by Ryujinx.");
                             }
                             break;
                     }
                 }
                 else
                 {
-                    Logger.Warning?.Print(LogClass.Application, "Please specify a valid XCI/NCA/NSP/PFS0/NRO file.");
+                    Logger.PrintWarning(LogClass.Application, "Please specify a valid XCI/NCA/NSP/PFS0/NRO file.");
                     device.Dispose();
 
                     return;
@@ -508,7 +495,7 @@ namespace Ryujinx.Ui
                 }
             ).ToArray());
 
-            _glWidget = new GlRenderer(_emulationContext, ConfigurationState.Instance.Logger.GraphicsDebugLevel);
+            _glWidget = new GlRenderer(_emulationContext);
 
             Application.Invoke(delegate
             {
@@ -518,11 +505,6 @@ namespace Ryujinx.Ui
 
                 _glWidget.ShowAll();
                 EditFooterForGameRender();
-
-                if (this.Window.State.HasFlag(Gdk.WindowState.Fullscreen))
-                {
-                    ToggleExtraWidgets(false);
-                }
             });
 
             _glWidget.WaitEvent.WaitOne();
@@ -538,11 +520,6 @@ namespace Ryujinx.Ui
             // NOTE: Everything that is here will not be executed when you close the UI.
             Application.Invoke(delegate
             {
-                if (this.Window.State.HasFlag(Gdk.WindowState.Fullscreen))
-                {
-                    ToggleExtraWidgets(true);
-                }
-
                 _viewBox.Remove(_glWidget);
                 _glWidget.Exit();
 
@@ -606,6 +583,10 @@ namespace Ryujinx.Ui
                     _footerBox.Hide();
                 }
             }
+
+            bool fullScreenToggled = this.Window.State.HasFlag(Gdk.WindowState.Fullscreen);
+
+            _fullScreen.Label = fullScreenToggled ? "Exit Fullscreen" : "Enter Fullscreen";
         }
 
         private static void UpdateGameMetadata(string titleId)
@@ -668,11 +649,10 @@ namespace Ryujinx.Ui
 
             Profile.FinishProfiling();
             DiscordIntegrationModule.Exit();
+            Logger.Shutdown();
 
             Ptc.Dispose();
             PtcProfiler.Dispose();
-
-            Logger.Shutdown();
 
             Application.Quit();
         }
@@ -692,7 +672,7 @@ namespace Ryujinx.Ui
                 }
                 else
                 {
-                    Logger.Warning?.Print(LogClass.Audio, "SoundIO is not supported, falling back to dummy audio out.");
+                    Logger.PrintWarning(LogClass.Audio, "SoundIO is not supported, falling back to dummy audio out.");
                 }
             }
             else if (ConfigurationState.Instance.System.AudioBackend.Value == AudioBackend.OpenAl)
@@ -703,11 +683,11 @@ namespace Ryujinx.Ui
                 }
                 else
                 {
-                    Logger.Warning?.Print(LogClass.Audio, "OpenAL is not supported, trying to fall back to SoundIO.");
+                    Logger.PrintWarning(LogClass.Audio, "OpenAL is not supported, trying to fall back to SoundIO.");
 
                     if (SoundIoAudioOut.IsSupported)
                     {
-                        Logger.Warning?.Print(LogClass.Audio, "Found SoundIO, changing configuration.");
+                        Logger.PrintWarning(LogClass.Audio, "Found SoundIO, changing configuration.");
 
                         ConfigurationState.Instance.System.AudioBackend.Value = AudioBackend.SoundIo;
                         SaveConfig();
@@ -716,7 +696,7 @@ namespace Ryujinx.Ui
                     }
                     else
                     {
-                        Logger.Warning?.Print(LogClass.Audio, "SoundIO is not supported, falling back to dummy audio out.");
+                        Logger.PrintWarning(LogClass.Audio, "SoundIO is not supported, falling back to dummy audio out.");
                     }
                 }
             }
@@ -957,7 +937,7 @@ namespace Ryujinx.Ui
 
                         dialog.SecondaryText = $"A valid system firmware was not found in {filename}.";
 
-                        Logger.Error?.Print(LogClass.Application, $"A valid system firmware was not found in {filename}.");
+                        Logger.PrintError(LogClass.Application, $"A valid system firmware was not found in {filename}.");
 
                         dialog.Run();
                         dialog.Hide();
@@ -994,7 +974,7 @@ namespace Ryujinx.Ui
 
                     if (response == (int)ResponseType.Yes)
                     {
-                        Logger.Info?.Print(LogClass.Application, $"Installing firmware {firmwareVersion.VersionString}");
+                        Logger.PrintInfo(LogClass.Application, $"Installing firmware {firmwareVersion.VersionString}");
                         
                         Thread thread = new Thread(() =>
                         {
@@ -1018,7 +998,7 @@ namespace Ryujinx.Ui
 
                                     dialog.SecondaryText = $"System version {firmwareVersion.VersionString} successfully installed.";
 
-                                    Logger.Info?.Print(LogClass.Application, $"System version {firmwareVersion.VersionString} successfully installed.");
+                                    Logger.PrintInfo(LogClass.Application, $"System version {firmwareVersion.VersionString} successfully installed.");
 
                                     dialog.Run();
                                     dialog.Dispose();
@@ -1039,7 +1019,7 @@ namespace Ryujinx.Ui
                                     dialog.SecondaryText = $"An error occured while installing system version {firmwareVersion.VersionString}." +
                                      " Please check logs for more info.";
 
-                                    Logger.Error?.Print(LogClass.Application, ex.Message);
+                                    Logger.PrintError(LogClass.Application, ex.Message);
 
                                     dialog.Run();
                                     dialog.Dispose();
@@ -1074,7 +1054,7 @@ namespace Ryujinx.Ui
 
                     dialog.SecondaryText = "An error occured while parsing firmware. Please check the logs for more info.";
 
-                    Logger.Error?.Print(LogClass.Application, ex.Message);
+                    Logger.PrintError(LogClass.Application, ex.Message);
 
                     dialog.Run();
                     dialog.Dispose();

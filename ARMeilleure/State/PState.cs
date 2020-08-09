@@ -1,5 +1,8 @@
+using System;
+
 namespace ARMeilleure.State
 {
+    [Flags]
     public enum PState
     {
         TFlag = 5,

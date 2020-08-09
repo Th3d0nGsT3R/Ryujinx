@@ -10,12 +10,25 @@ namespace ARMeilleure.IntermediateRepresentation
 
         public Operand Destination
         {
-            get => _destinations.Count != 0 ? GetDestination(0) : null;
-            set => SetDestination(value);
+            get
+            {
+                return _destinations.Count != 0 ? GetDestination(0) : null;
+            }
+            set
+            {
+                if (value != null)
+                {
+                    SetDestination(value);
+                }
+                else
+                {
+                    _destinations.Clear();
+                }
+            }
         }
 
-        private readonly List<Operand> _destinations;
-        private readonly List<Operand> _sources;
+        private List<Operand> _destinations;
+        private List<Operand> _sources;
         private bool _clearedDest;
 
         public int DestinationsCount => _destinations.Count;
@@ -110,14 +123,13 @@ namespace ARMeilleure.IntermediateRepresentation
 
         private void RemoveOldDestinations()
         {
-            if (!_clearedDest)
+            if (_destinations != null && !_clearedDest)
             {
                 for (int index = 0; index < _destinations.Count; index++)
                 {
                     RemoveAssignment(_destinations[index]);
                 }
             }
-
             _clearedDest = false;
         }
 
@@ -125,18 +137,13 @@ namespace ARMeilleure.IntermediateRepresentation
         {
             RemoveOldDestinations();
 
-            if (destination == null)
-            {
-                _destinations.Clear();
-                _clearedDest = true;
-            }
-            else
-            {
-                Resize(_destinations, 1);
+            Resize(_destinations, 1);
 
-                _destinations[0] = destination;
+            _destinations[0] = destination;
 
-                AddAssignment(destination);
+            if (destination.Kind == OperandKind.LocalVariable)
+            {
+                destination.Assignments.Add(this);
             }
         }
 
@@ -168,17 +175,13 @@ namespace ARMeilleure.IntermediateRepresentation
         {
             RemoveOldSources();
 
-            if (source == null)
-            {
-                _sources.Clear();
-            }
-            else
-            {
-                Resize(_sources, 1);
+            Resize(_sources, 1);
 
-                _sources[0] = source;
+            _sources[0] = source;
 
-                AddUse(source);
+            if (source.Kind == OperandKind.LocalVariable)
+            {
+                source.Uses.Add(this);
             }
         }
 

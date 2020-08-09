@@ -56,17 +56,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
                         continue;
                     }
 
-                    if ((context.Config.Flags & TranslationFlags.Feedback) != 0)
-                    {
-                        context.AppendLine($"{DefaultNames.OAttributePrefix}{attr}_x = 0;");
-                        context.AppendLine($"{DefaultNames.OAttributePrefix}{attr}_y = 0;");
-                        context.AppendLine($"{DefaultNames.OAttributePrefix}{attr}_z = 0;");
-                        context.AppendLine($"{DefaultNames.OAttributePrefix}{attr}_w = 0;");
-                    }
-                    else
-                    {
-                        context.AppendLine($"{DefaultNames.OAttributePrefix}{attr} = vec4(0);");
-                    }
+                    context.AppendLine($"{DefaultNames.OAttributePrefix}{attr} = vec4(0);");
                 }
             }
 
@@ -130,7 +120,7 @@ namespace Ryujinx.Graphics.Shader.CodeGen.Glsl
 
                     if (assignment.Destination is AstOperand operand && operand.Type == OperandType.Attribute)
                     {
-                        dest = OperandManager.GetOutAttributeName(operand, context.Config);
+                        dest = OperandManager.GetOutAttributeName(operand, context.Config.Stage);
                     }
                     else
                     {

@@ -22,7 +22,6 @@ namespace Ryujinx.HLE.HOS.Services.Am
         StackPoolExhausted     = (712 << ErrorCodeShift) | ModuleId,
         DebugModeNotEnabled    = (974 << ErrorCodeShift) | ModuleId,
         DevFunctionNotEnabled  = (980 << ErrorCodeShift) | ModuleId,
-        NotImplemented         = (998 << ErrorCodeShift) | ModuleId,
-        Stubbed                = (999 << ErrorCodeShift) | ModuleId
+        NotImplemented         = (998 << ErrorCodeShift) | ModuleId
     }
 }

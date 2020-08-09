@@ -70,7 +70,7 @@ namespace Ryujinx.Graphics.Gpu.Shader
         /// <param name="message">Message to print</param>
         public void Log(string message)
         {
-            Logger.Warning?.Print(LogClass.Gpu, $"Shader translator: {message}");
+            Logger.PrintWarning(LogClass.Gpu, $"Shader translator: {message}");
         }
 
         /// <summary>
@@ -81,7 +81,7 @@ namespace Ryujinx.Graphics.Gpu.Shader
         /// <returns>Data at the memory location</returns>
         public T MemoryRead<T>(ulong address) where T : unmanaged
         {
-            return _context.MemoryManager.Read<T>(address);
+            return _context.MemoryAccessor.Read<T>(address);
         }
 
         /// <summary>
